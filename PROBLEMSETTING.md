@@ -1,9 +1,22 @@
 # Group 18
+---
+## Naruto Handsign
+---
+### Problemsetting
 
-## Porblemsetting
+### Evaluation Protocol
 
-## Evaluation Protocol
+### Architecture
 
-## Architecture
+#### Baseline Model
 
-### Baseline Model
+## Meme sentiment/toxicity classification
+---
+
+### Problemsetting
+
+### Evaluation Protocol
+
+### Architecture
+
+#### Baseline Model
