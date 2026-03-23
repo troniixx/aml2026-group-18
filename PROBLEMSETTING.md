@@ -1,7 +1,7 @@
 # Group 18
----
+
 ## Naruto Handsign
----
+
 ### Problemsetting
 
 ### Evaluation Protocol
@@ -11,7 +11,6 @@
 #### Baseline Model
 
 ## Meme sentiment/toxicity classification
----
 
 ### Problemsetting
 
