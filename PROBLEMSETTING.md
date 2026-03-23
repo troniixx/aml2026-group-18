@@ -14,7 +14,15 @@ Given a sequence i = < $i_1$, $i_2$, $i_3$, ..., $i_n$ >, where $i_n$ represents
 ### Architecture
 
 #### Baseline Model
+- Single-Frame CNN (MobileNet)
 
+#### Advanced Model
+- ViT
+- CNN + Transformer hybrid
+- MediaPipe Hands + SVM
+
+#### Metrics
+- Top-1 and Top-5 accuracy, confusion matric
 ## Meme sentiment/toxicity classification
 
 ### Problemsetting
@@ -25,6 +33,18 @@ Given a meme image $i$, our goal is that the system should asses and classify th
 2. Build and train model (using OCR, sentiment Analysis, Text Extraction, TBD: Facial recognition in images)
 3. Evaluation: Metrics for classification problems, manual eval, k-fold cross validation
 
+#### Datasets
+- Facebook Hateful Memes Challenge
+
 ### Architecture
 
 #### Baseline Model
+- Text only: fine-tuned BERT on OCR extracted text
+- Image only: fine-tunes ResNET/ViT
+
+#### Advanced Models
+- CLIP
+- VisualBERT
+
+#### Metrics
+- AUROC, F1
