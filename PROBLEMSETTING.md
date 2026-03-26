@@ -4,8 +4,7 @@
 
 ### Problemsetting
 Given a video $v = \langle f_1, f_2, \ldots, f_N \rangle$, where $f_n$ represents the $n$-th RGB frame of a person performing a hand seal, our goal is to classify the performed hand seal in real time into a label $y \in \mathcal{Y}$, where $\mathcal{Y} = \{y_1, \ldots, y_{12}\} \cup \mathcal{C}$ denotes the set of the 12 basic hand seals and a predefined set $\mathcal{C}$ of named special combinations thereof.
-The predicted label $\hat{y}$ is then used to trigger a corresponding visual effect
-overlaid on the live video feed.
+The predicted label $\hat{y}$ is then used to trigger a corresponding visual effect overlaid on the live video feed.
 
 ##### Background: Hand Seals in Naruto
 In the anime *Naruto Shippuden*, hand seals are specific finger and hand gestures used to shape chakra (an internal energy source) and execute jutsu (ninja techniques). The 12 basic seals are derived from the Chinese zodiac signs and serve as the fundamental building blocks from which arbitrarily complex jutsu sequences can be composed.
