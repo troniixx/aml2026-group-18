@@ -46,7 +46,8 @@ This project focuses exclusively on the 12 basic seals and a fixed set of named 
 - **YOLO-based Pipeline**: Use a pretrained YOLO model (Ultralytics YOLOv8)
   in two stages: first, detect and localize the hand region in each frame,
   yielding a tight crop $f_n^{\text{crop}} \in \mathbb{R}^{H' \times W' \times 3}$; second, pass the crop through a fine-tuned classifier head for seal prediction $\hat{y}$. This pipeline is particularly suited for the live feed application since YOLO is optimized for real-time inference. If detection and classification quality is sufficient, this may serve as an alternative primary model.
-
+  SIDENOTE: YOLOv8 is not transformer based. It uses a purely CNN-based backbone (CSPDarknet) and does not include a Transformer component.If this does not meet the requirements for an advanced model, we could instead use **YOLOv8-SwinT** — a variant that replaces the CSPDarknet backbone with a Swin Transformer, a hierarchical Vision Transformer that computes self-attention within shifted local windows, yielding richer spatial representations while remaining compatible with the YOLOv8 detection head (https://github.com/mingruWang/Yolov8-IST/blob/main/README.md)
+  Whether the standard or Swin-backbone variant is used will depend on whether the YOLO pipeline is selected as a primary model and your (the tutors) feedback.
 
 
 ##### Tech Stack
