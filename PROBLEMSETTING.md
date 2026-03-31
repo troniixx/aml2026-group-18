@@ -7,7 +7,7 @@ Given a video $v = \langle f_1, f_2, \ldots, f_N \rangle$, where $f_n$ represent
 The predicted label $\hat{y}$ is then used to trigger a corresponding visual effect overlaid on the live video feed.
 
 ##### Background: Hand Seals in Naruto
-In the anime *Naruto Shippuden*, hand seals are specific finger and hand gestures used to shape chakra (an internal energy source) and execute jutsu (ninja techniques). The 12 basic seals are derived from the Chinese zodiac signs and serve as the fundamental building blocks from which arbitrarily complex jutsu sequences can be composed.
+In the anime *Naruto Shippuden*, hand seals are specific finger and hand gestures used to shape chakra (an internal energy source) and execute jutsu (ninja techniques). The 12 basic seals are derived from the Chinese zodiac signs and serve as the fundamental building blocks from which arbitrarily complex jutsu sequences can be composed. 
 This project focuses exclusively on the 12 basic seals and a fixed set of named multi-seal combinations.
 
 
