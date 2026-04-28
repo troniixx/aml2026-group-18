@@ -1,0 +1,61 @@
+=======================================================
+DATASET OVERVIEW
+=======================================================
+
+[TEST]  total images: 86
+  Seal                  Count  Resolution
+  --------------------  ------  ---------------
+  bird                      4  640x480
+  boar                     10  640x480
+  dog                      10  640x480
+  dragon                   10  640x480
+  hare                     10  640x480
+  horse                     5  640x480
+  monkey                    5  640x480
+  ox                        7  640x480
+  ram                       5  640x480
+  rat                       5  640x480
+  snake                     5  640x480
+  tiger                     5  640x480
+  zero                      5  640x480
+
+  Min: 4  Max: 10  Mean: 7  Std: 2
+  Imbalance ratio (max/min): 2.50x
+
+[TRAIN]  total images: 2159
+  Seal                  Count  Resolution
+  --------------------  ------  ---------------
+  bird                    188  640x480
+  boar                    172  640x480
+  dog                     263  640x480
+  dragon                  146  640x480
+  hare                    174  640x480
+  horse                   157  640x480
+  monkey                  136  640x480
+  ox                      169  640x480
+  ram                     117  640x480
+  rat                     125  640x480
+  snake                   146  640x480
+  tiger                   167  640x480
+  zero                    199  640x480
+
+  Min: 117  Max: 263  Mean: 166  Std: 38
+  Imbalance ratio (max/min): 2.25x
+
+
+[TRAIN/TEST RATIO PER CLASS]
+split   test  train      ratio
+seal                          
+bird       4    188  47.000000
+boar      10    172  17.200000
+dog       10    263  26.300000
+dragon    10    146  14.600000
+hare      10    174  17.400000
+horse      5    157  31.400000
+monkey     5    136  27.200000
+ox         7    169  24.142857
+ram        5    117  23.400000
+rat        5    125  25.000000
+snake      5    146  29.200000
+tiger      5    167  33.400000
+zero       5    199  39.800000
