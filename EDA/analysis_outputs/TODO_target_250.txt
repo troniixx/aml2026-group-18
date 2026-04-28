@@ -1,0 +1,44 @@
+TARGET ANALYSIS — Naruto Hand Seal Dataset
+==================================================
+
+Class          Kaggle   Target  Deficit  Priority
+------------  ------  ------  -------  ------------------------------
+ram               122      250      128  🔴 HIGH
+rat               130      250      120  🔴 HIGH
+monkey            141      250      109  🔴 HIGH
+snake             151      250       99  🟠 MED
+dragon            156      250       94  🟠 MED
+horse             162      250       88  🟠 MED
+tiger             172      250       78  🟠 MED
+ox                176      250       74  🟠 MED
+boar              182      250       68  🟠 MED
+hare              184      250       66  🟠 MED
+bird              192      250       58  🟡 LOW
+zero              204      250       46  🟡 LOW
+dog               273      250      -23  ✅ OVERSAMPLE — cap or leave
+
+──────────────────────────────────────────────────
+STATISTICS
+──────────────────────────────────────────────────
+  Target per class         : 250
+  Classes needing images   : 12 / 13
+  Total images needed      : 1028
+  Team members             : 5
+  Images per person        : ~206  (ceiling)
+
+  Breakdown by priority:
+    🔴 HIGH  →   357 images  (ram, rat, monkey)
+    🟠 MED  →   567 images  (snake, dragon, horse, tiger, ox, boar, hare)
+    🟡 LOW  →   104 images  (bird, zero)
+
+──────────────────────────────────────────────────
+VIDEO RECORDING ESTIMATE
+──────────────────────────────────────────────────
+  Clip length              : 8s
+  Extraction FPS           : 5fps
+  Trim (each end)          : 2.0s
+  Usable frames per clip   : ~20
+  Clips needed per person  : ~11  (to cover ~206 images)
+  Spread across 13 seals     : ~1 clip(s) per seal per person
+
+  Tip: record 2 clips per seal per person for a small safety margin.
