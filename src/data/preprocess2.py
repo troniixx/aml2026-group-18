@@ -3,6 +3,7 @@ import numpy as np
 from src.features.landmarks2 import extract_landmarks
 import cv2
 from tqdm import tqdm
+from src.config import NEW_CLASSES, NEW_DATA_DIR_TEST, NEW_DATA_DIR_TRAIN, NEW_DATA_DIR_VAL
 
 def build_dataset(data_dir):
     X, y = [], []
@@ -27,6 +28,18 @@ def build_dataset(data_dir):
 
         print(f"processed {counter} images for class '{label}'")
         plotter.append([label, counter])
+
+    for d in [NEW_DATA_DIR_TRAIN, NEW_DATA_DIR_TEST, NEW_DATA_DIR_VAL]:
+        for pic in tqdm(os.listdir(d), desc=f"Processing additional data"):
+            if pic.endswith('.jpg'):
+                img_path = os.path.join(d, pic)
+                image = cv2.imread(img_path)
+
+            features = extract_landmarks(image)
+
+            if features is not None:
+                X.append(features)
+                y.append(pic.split('_')[0])
     
     X_clean, y_clean = [], []
 

@@ -5,7 +5,55 @@ import joblib
 from src.features.landmarks2 import extract_landmarks
 from src.config import MODEL_PATH2
 
+def add_text(frame, text, color=(255, 255, 255), font_scale=1, thickness=2):
+    h, w = frame.shape[:2]
+    (text_width, text_height), baseline = cv2.getTextSize(
+        text,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        font_scale,
+        thickness
+    )
+    
+    x = (w - text_width) // 2
+    y = h - 20
+
+    cv2.putText(
+        frame, text, (x, y),
+        cv2.FONT_HERSHEY_DUPLEX,
+        font_scale, color, thickness, 
+        cv2.LINE_AA,
+    )
+
 def run():
+    color_map = {
+        'bird': (255, 0, 0), 
+        'boar': (0, 255, 0), 
+        'dog': (0, 0, 255), 
+        'dragon': (255, 255, 0), 
+        'ox': (255, 0, 255), 
+        'tiger': (0, 255, 255), 
+        'snake': (255, 128, 0), 
+        'rat': (128, 0, 255), 
+        'horse': (0, 128, 255), 
+        'monkey': (128, 255, 0), 
+        'hare': (255, 0, 128), 
+        'ram': (0, 255, 128)
+    }
+    color_map = {
+        'bird': (252, 169, 133), 
+        'boar': (133, 202, 93), 
+        'dog': (72, 181, 163), 
+        'dragon': (117, 137, 191), 
+        'ox': (249, 140, 182), 
+        'tiger': (140, 232, 205), 
+        'snake': (255, 255, 176), 
+        'rat': (207, 236, 207), 
+        'horse': (204, 236, 239), 
+        'monkey': (221, 212, 232), 
+        'hare': (255, 237, 81), 
+        'ram': (111, 183, 214)
+    }
+
     model = joblib.load(MODEL_PATH2)
     cap = cv2.VideoCapture(0)
 
@@ -24,26 +72,11 @@ def run():
         features = extract_landmarks(frame)
 
         if features is not None:
-            pred = model.predict([features])[0]
+            response = model.predict([features])
+            pred = response[0]
 
             if pred != 'zero':
-                h, w = frame.shape[:2]
-                (text_width, text_height), baseline = cv2.getTextSize(
-                    pred,
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    2
-                )
-                
-                x = (w - text_width) // 2
-                y = h - 20 
-
-                cv2.putText(
-                    frame, pred, (x, y),
-                    cv2.FONT_HERSHEY_DUPLEX,
-                    1, (255, 255, 255), 2, 
-                    cv2.LINE_AA,
-                )
+                add_text(frame, pred, color_map[pred])
 
         cv2.imshow("Naruto Handsigns", frame)
 
