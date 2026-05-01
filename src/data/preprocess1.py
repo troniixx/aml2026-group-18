@@ -39,7 +39,7 @@ def build_dataset(data_dir):
 
             if features is not None:
                 X.append(features)
-                y.append(pic.split('_')[0])
+                y.append('snake' if pic.split('_')[0] == 'serpent' else pic.split('_')[0])
     
     X_clean, y_clean = [], []
 
