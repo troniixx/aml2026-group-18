@@ -1,4 +1,4 @@
-"""Merges our own curated dataset with the dataset available from kaggle. Also creates a summary report."""
+"""Merges our own curated dataset with the dataset available from kaggle (checks for existing). Also creates a summary report."""
 
 from pathlib import Path
 import datetime
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     merged_dataset_path = Path("../datasets/MERGED")
 
     date_formatted = datetime.datetime.now().strftime("%d-%m-%y")
-    report_path    = Path(f"./reports/dataset_merger_report_{date_formatted}.txt")
+    report_path    = Path(f"./reports/dataset_merger_report_{date_formatted}_ishanas_added.txt")
 
     print("Step 1: collecting Kaggle images...")
     kaggle_collected = merge_kaggle(raw_kaggle_dataset)
