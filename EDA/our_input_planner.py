@@ -128,7 +128,7 @@ def format_stats(
 
 if __name__ == "__main__":
 
-    TARGET_VALUE    = 200
+    TARGET_VALUE    = 250
     TEAM_MEMBERS    = 5
     CLIP_LENGTH_S   = 8        # seconds per recorded clip
     EXTRACTION_FPS  = 5        # frames extracted per second

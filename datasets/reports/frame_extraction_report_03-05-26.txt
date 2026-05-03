@@ -1,0 +1,47 @@
+FRAME EXTRACTION REPORT
+============================================================
+  Extraction FPS   : 5fps
+  Videos processed : 12
+  Already done     : 60  (skipped)
+  Videos skipped   : 0
+  Errors           : 0
+  Total frames     : 565
+
+────────────────────────────────────────────────────────────
+PER VIDEO
+────────────────────────────────────────────────────────────
+  File                                       Durs   Frames
+  ----------------------------------------  -----   -------
+  bird_ishana_far.mp4                        9.8s       49
+  boar_ishana_far.mp4                      12.93s       65
+  dog_ishana_far.mp4                       10.97s       55
+  dragon_ishana_far.mp4                     11.8s       59
+  hare_ishana_far.mp4                        9.3s       47
+  horse_ishana_far.mp4                      9.27s       47
+  monkey_ishana_far.mp4                     7.13s       36
+  ox_ishana_far.mp4                        10.43s       53
+  ram_ishana_far.mp4                        8.57s       43
+  rat_ishana_far.mp4                        7.77s       39
+  snake_ishana_far.mp4                      6.73s       34
+  tiger_ishana_far.mp4                       7.5s       38
+
+────────────────────────────────────────────────────────────
+FRAMES PER SEAL
+────────────────────────────────────────────────────────────
+  bird            49 frames
+  boar            65 frames
+  dog             55 frames
+  dragon          59 frames
+  hare            47 frames
+  horse           47 frames
+  monkey          36 frames
+  ox              53 frames
+  ram             43 frames
+  rat             39 frames
+  snake           34 frames
+  tiger           38 frames
+
+────────────────────────────────────────────────────────────
+FRAMES PER PERSON
+────────────────────────────────────────────────────────────
+  ishana         565 frames
