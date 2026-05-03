@@ -2,7 +2,7 @@ from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import Subset, DataLoader
 import numpy as np
 import torch
-from evaluation.metrics import evaluate_model
+from metrics import evaluate_model
 
 def run_5fold_cv(dataset, model_class, train_model, device, num_classes=12):
     skf = StratifiedKFold(
@@ -63,10 +63,11 @@ def run_5fold_cv(dataset, model_class, train_model, device, num_classes=12):
 
     return fold_top1_results, fold_top3_results
 
-cnn_fold_top1, cnn_fold_top3 = run_5fold_cv(
-    dataset=dataset,
-    model_class=CNNModel,
-    train_model=train_model,
-    device=device,
-    num_classes=12
-)
+if __name__ == "__main__":
+    cnn_fold_top1, cnn_fold_top3 = run_5fold_cv(
+        dataset=dataset,
+        model_class=CNNModel,
+        train_model=train_model,
+        device=device,
+        num_classes=12
+    )
