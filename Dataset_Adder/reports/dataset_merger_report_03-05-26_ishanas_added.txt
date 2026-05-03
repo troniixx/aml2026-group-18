@@ -1,0 +1,30 @@
+DATASET MERGE REPORT
+=================================================================
+  Output folder    : C:\Users\babus\OneDrive\Documents\uni uzh\FS26\advanced_machine_learning\aml2026-group-18\datasets\MERGED
+  Total copied     : 565
+  Total skipped    : 2840  (already on disk)
+  Total on disk    : 3405
+
+─────────────────────────────────────────────────────────────────
+  Seal           Kaggle      Own  Skipped    Total
+  ------------  ------  ------  -------  ------
+  bird              192       86      229      278
+  boar              182      120      237      302
+  dog               273      107      325      380
+  dragon            156      104      201      260
+  hare              184      105      242      289
+  horse             162      101      216      263
+  monkey            141       86      191      227
+  ox                176      101      224      277
+  ram               122       97      176      219
+  rat               130       86      177      216
+  snake             151       83      200      234
+  tiger             172       84      218      256
+  zero              204        0      204      204
+
+─────────────────────────────────────────────────────────────────
+IMBALANCE CHECK
+─────────────────────────────────────────────────────────────────
+  Min : zero         204 images
+  Max : dog          380 images
+  Ratio (max/min)  : 1.86x
