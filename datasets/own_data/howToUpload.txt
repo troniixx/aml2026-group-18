@@ -1,0 +1,1 @@
+ naming convention: {seal}_{person}_{distance (near/far)}.mp4 
