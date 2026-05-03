@@ -1,4 +1,4 @@
-"""Converts own uploaded videos into frames to curate own dataset"""
+"""Converts own uploaded videos into frames to curate own dataset. Checks for if already done"""
 
 from pathlib import Path
 import cv2
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     report_path         = Path(f"./reports/frame_extraction_report_{date_formatted}.txt")
     extraction_fps      = 5   # frames extracted per second — yields 10–25 frames per 2–5s clip
 
-    videos  = list(video_folder.glob("*.mp4"))
+    videos = list(video_folder.rglob("*.mp4")) + list(video_folder.rglob("*.MP4"))
     print(f"Found {len(videos)} videos in {video_folder.resolve()}\n")
 
     results = [extract_frames(v, output_root_folder, extraction_fps) for v in videos]

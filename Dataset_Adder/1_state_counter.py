@@ -1,6 +1,7 @@
 """Counts the current state of own curated dataset => who has uploaded what"""
 
 from pathlib import Path
+import datetime
 
 
 def analyze_state(folder_with_data: Path, seals: list[str], people: list[str], report_path: Path):
@@ -112,8 +113,10 @@ def analyze_state(folder_with_data: Path, seals: list[str], people: list[str], r
 if __name__ == "__main__":
     seals            = ["bird", "boar", "dog", "dragon", "hare", "horse", "monkey", "ox", "ram", "rat", "snake", "tiger", "zero"]
     people           = ["chenxi", "jeni", "mert", "ishana", "ajeong"]
-    folder_with_data = Path("../datasets/own_data") # "datasets/own_data"
-    report_path      = Path("./reports/uploaded_data_report.txt") # "Dataset_Adder/reports/uploaded_data_report.txt"
+    folder_with_data = Path("datasets/own_data") # "../datasets/own_data"
+    
+    date_formatted = datetime.datetime.now().strftime("%d-%m-%y")
+    report_path      = Path(f"Dataset_Adder/reports/uploaded_data_report_{date_formatted}.txt") # "./reports/uploaded_data_report.txt"
 
     analyze_state(folder_with_data, seals, people, report_path)
-    # run from Dataset_adder folder or adjust path
+    # run from root folder or adjust path
