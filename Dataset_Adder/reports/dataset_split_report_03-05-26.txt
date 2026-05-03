@@ -1,0 +1,32 @@
+DATASET SPLIT REPORT
+======================================================================
+  Output folder    : C:\Users\babus\OneDrive\Documents\uni uzh\FS26\advanced_machine_learning\aml2026-group-18\datasets\Final_Dataset
+  Split ratios     : train 80%  /  validate 10%  /  test 10%
+  Total images     : 2840
+  Train            : 2248  (79.2%)
+  Validate         : 256   (9.0%)
+  Test             : 336  (11.8%)
+
+──────────────────────────────────────────────────────────────────────
+  Seal          Clips    Train   Validate     Test    Total
+  ------------  -----  ------  --------  ------  ------
+  bird            194      178         31       20      229
+  boar            184      200         18       19      237
+  dog             275      270         27       28      325
+  dragon          158      151         15       35      201
+  hare            186      173         18       51      242
+  horse           164      183         16       17      216
+  monkey          143      114         37       40      191
+  ox              178      188         17       19      224
+  ram             124      126         12       38      176
+  rat             132      150         13       14      177
+  snake           153      169         15       16      200
+  tiger           174      183         17       18      218
+  zero            204      163         20       21      204
+
+──────────────────────────────────────────────────────────────────────
+IMBALANCE CHECK (train split)
+──────────────────────────────────────────────────────────────────────
+  Min : monkey       114 images
+  Max : dog          270 images
+  Ratio (max/min)  : 2.37x
