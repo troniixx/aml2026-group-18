@@ -1,0 +1,48 @@
+OWN DATA UPLOAD TRACKER
+======================================================================
+
+Seal        chenxi     jeni      mert     ishana    ajeong    Total   
+----------------------------------------------------------------------
+bird          ✓         ✓         ·         ✓         ·         3     
+boar          ✓         ✓         ·         ✓         ·         3     
+dog           ✓         ✓         ·         ✓         ·         3     
+dragon        ✓         ✓         ·         ✓         ·         3     
+hare          ✓         ✓         ·         ✓         ·         3     
+horse         ✓         ✓         ·         ✓         ·         3     
+monkey        ✓         ✓         ·         ✓         ·         3     
+ox            ✓         ✓         ·         ✓         ·         3     
+ram           ✓         ✓         ·         ✓         ·         3     
+rat           ✓         ✓         ·         ✓         ·         3     
+snake         ✓         ✓         ·         ✓         ·         3     
+tiger         ✓         ✓         ·         ✓         ·         3     
+zero          ·         ·         ·         ·         ·         0     
+----------------------------------------------------------------------
+Total         12        12        0         12        0         36    
+
+──────────────────────────────────────────────────────────────────────
+SUMMARY
+──────────────────────────────────────────────────────────────────────
+  Total uploaded : 36 / 65
+  Progress       : 55.4%
+
+  Per person:
+    chenxi     12 / 13  [██████████████████░░]
+    jeni       12 / 13  [██████████████████░░]
+    mert        0 / 13  [░░░░░░░░░░░░░░░░░░░░]
+    ishana     12 / 13  [██████████████████░░]
+    ajeong      0 / 13  [░░░░░░░░░░░░░░░░░░░░]
+
+  Missing uploads:
+    bird       still needed from: mert, ajeong
+    boar       still needed from: mert, ajeong
+    dog        still needed from: mert, ajeong
+    dragon     still needed from: mert, ajeong
+    hare       still needed from: mert, ajeong
+    horse      still needed from: mert, ajeong
+    monkey     still needed from: mert, ajeong
+    ox         still needed from: mert, ajeong
+    ram        still needed from: mert, ajeong
+    rat        still needed from: mert, ajeong
+    snake      still needed from: mert, ajeong
+    tiger      still needed from: mert, ajeong
+    zero       still needed from: chenxi, jeni, mert, ishana, ajeong
