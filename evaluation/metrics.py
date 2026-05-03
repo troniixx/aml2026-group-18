@@ -43,29 +43,24 @@ def evaluate_model(model, dataloader, device, num_classes=12):
 
     return top1_acc, top3_acc, cm
 
+if __name__ == "__main__":
+    class_names = dataset.classes  # have to match 'dataset.class_to_idx'
 
+    cnn_top1, cnn_top3, cnn_cm = evaluate_model(
+        cnn_model,
+        test_loader,
+        device,
+        num_classes=12
+    )
 
-class_names = [
-    "rat", "ox", "tiger", "rabbit",
-    "dragon", "snake", "horse", "goat",
-    "monkey", "rooster", "dog", "pig"
-]
+    print("CNN Test Top-1 Accuracy:", cnn_top1)
+    print("CNN Test Top-3 Accuracy:", cnn_top3)
 
-cnn_top1, cnn_top3, cnn_cm = evaluate_model(
-    cnn_model,
-    test_loader,
-    device,
-    num_classes=12
-)
+    disp = ConfusionMatrixDisplay(
+        confusion_matrix=cnn_cm,
+        display_labels=class_names
+    )
 
-print("CNN Test Top-1 Accuracy:", cnn_top1)
-print("CNN Test Top-3 Accuracy:", cnn_top3)
-
-disp = ConfusionMatrixDisplay(
-    confusion_matrix=cnn_cm,
-    display_labels=class_names
-)
-
-disp.plot(xticks_rotation=45)
-plt.title("CNN Test Confusion Matrix")
-plt.show()
+    disp.plot(xticks_rotation=45)
+    plt.title("CNN Test Confusion Matrix")
+    plt.show()
