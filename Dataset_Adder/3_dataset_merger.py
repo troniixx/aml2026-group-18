@@ -135,7 +135,14 @@ def build_report(
     max_seal  = max(totals, key=totals.get)
     lines.append(f"  Min : {min_seal:<12} {totals[min_seal]} images")
     lines.append(f"  Max : {max_seal:<12} {totals[max_seal]} images")
-    lines.append(f"  Ratio (max/min)  : {totals[max_seal] / totals[min_seal]:.2f}x")
+    lines.append(f"  Ratio (max/min) incl. zero : {totals[max_seal] / totals[min_seal]:.2f}x")
+
+    totals_no_zero = {seal: count for seal, count in totals.items() if seal != "zero"}
+    if totals_no_zero:
+        min_seal_nz = min(totals_no_zero, key=totals_no_zero.get)
+        max_seal_nz = max(totals_no_zero, key=totals_no_zero.get)
+        lines.append(f"  Ratio (max/min) excl. zero : {totals_no_zero[max_seal_nz] / totals_no_zero[min_seal_nz]:.2f}x")
+        lines.append(f"    (min: {min_seal_nz} {totals_no_zero[min_seal_nz]}, max: {max_seal_nz} {totals_no_zero[max_seal_nz]})")
 
     output = "\n".join(lines)
     print(output)
@@ -146,12 +153,13 @@ def build_report(
 
 
 if __name__ == "__main__":
+    # run from dataset_adder folder
     raw_kaggle_dataset  = Path("../datasets/Kaggle")
     own_curated_dataset = Path("../datasets/own_data_processed")
     merged_dataset_path = Path("../datasets/MERGED")
 
     date_formatted = datetime.datetime.now().strftime("%d-%m-%y")
-    report_path    = Path(f"./reports/dataset_merger_report_{date_formatted}_ishanas_added.txt")
+    report_path    = Path(f"./reports/dataset_merger_report_{date_formatted}_mert_ajeong_added.txt")
 
     print("Step 1: collecting Kaggle images...")
     kaggle_collected = merge_kaggle(raw_kaggle_dataset)
