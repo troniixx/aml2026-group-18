@@ -1,0 +1,60 @@
+FRAME EXTRACTION REPORT
+============================================================
+  Extraction FPS   : 5fps
+  Videos processed : 24
+  Already done     : 96  (skipped)
+  Videos skipped   : 0
+  Errors           : 0
+  Total frames     : 1054
+
+────────────────────────────────────────────────────────────
+PER VIDEO
+────────────────────────────────────────────────────────────
+  File                                       Durs   Frames
+  ----------------------------------------  -----   -------
+  bird_ajeong_near.mp4                       5.0s       25
+  boar_ajeong_near.mp4                       4.8s       24
+  dog_ajeong_near.mp4                       4.83s       25
+  dragon_ajeong_near.mp4                     5.8s       29
+  hare_ajeong_near.mp4                       4.0s       20
+  horse_ajeong_near.mp4                     5.03s       26
+  monkey_ajeong_near.mp4                     5.4s       27
+  ox_ajeong_near.mp4                        5.77s       29
+  ram_ajeong_near.mp4                       5.23s       27
+  rat_ajeong_near.mp4                        5.1s       26
+  snake_ajeong_near.mp4                      4.2s       21
+  tiger_ajeong_near.mp4                     4.93s       25
+  bird_mert_near.mov                       13.47s       68
+  boar_mert_near.mov                        10.8s       54
+  dog_mert_near.mov                        13.97s       70
+  dragon_mert_near.mov                     15.07s       76
+  hare_mert_near.mov                        11.7s       59
+  horse_mert_near.mov                       10.4s       52
+  monkey_mert_near.mov                      8.87s       45
+  ox_mert_near.mov                          14.7s       74
+  ram_mert_near.mov                         10.2s       51
+  rat_mert_near.mov                         11.8s       59
+  snake_mert_near.mov                       15.0s       75
+  tiger_mert_near.mov                      13.27s       67
+
+────────────────────────────────────────────────────────────
+FRAMES PER SEAL
+────────────────────────────────────────────────────────────
+  bird            93 frames
+  boar            78 frames
+  dog             95 frames
+  dragon         105 frames
+  hare            79 frames
+  horse           78 frames
+  monkey          72 frames
+  ox             103 frames
+  ram             78 frames
+  rat             85 frames
+  snake           96 frames
+  tiger           92 frames
+
+────────────────────────────────────────────────────────────
+FRAMES PER PERSON
+────────────────────────────────────────────────────────────
+  ajeong         304 frames
+  mert           750 frames
