@@ -144,6 +144,7 @@ def build_report(results: list[dict], extraction_fps: int, report_path: Path):
 
 
 if __name__ == "__main__":
+    # run from Dataset_Adder folder
     video_folder        = Path("../datasets/own_data")
     output_root_folder  = Path("../datasets/own_data_processed")
 
@@ -156,7 +157,12 @@ if __name__ == "__main__":
     report_path         = Path(f"./reports/frame_extraction_report_{date_formatted}.txt")
     extraction_fps      = 5   # frames extracted per second — yields 10–25 frames per 2–5s clip
 
-    videos = list(video_folder.rglob("*.mp4")) + list(video_folder.rglob("*.MP4"))
+    videos = (
+        list(video_folder.rglob("*.mp4")) +
+        list(video_folder.rglob("*.MP4")) +
+        list(video_folder.rglob("*.mov")) +
+        list(video_folder.rglob("*.MOV"))
+    )
     print(f"Found {len(videos)} videos in {video_folder.resolve()}\n")
 
     results = [extract_frames(v, output_root_folder, extraction_fps) for v in videos]

@@ -10,7 +10,7 @@ def analyze_state(folder_with_data: Path, seals: list[str], people: list[str], r
     uploaded = {seal: {person: False for person in people} for seal in seals}
     unrecognized = []
 
-    for f in Path(folder_with_data).glob("*.mp4"):
+    for f in list(Path(folder_with_data).glob("*.mp4")) + list(Path(folder_with_data).glob("*.mov")):
         parts = f.stem.split("_")
         if len(parts) < 3:
             unrecognized.append(f.name)
