@@ -13,11 +13,22 @@ import torch.nn as nn
 import time
 
 # ── config ────────────────────────────────────────────────────────────────────
-DEVICE       = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # for windows or macs without mps support
 CHECKPOINT   = "Mert/mobilenetv2_best.pth"
 MODEL_PATH   = "Mert/hand_landmarker.task"
-CAMERA_INDEX = 1 # Change to 0 for windows or macs that are not connected to iphone cameras
+
+try:
+    CAMERA_INDEX = 1
+except:
+    CAMERA_INDEX = 0 
+
+if torch.backends.mps.is_available():
+    DEVICE = torch.device("mps")
+elif torch.cuda.is_available():
+    DEVICE = torch.device("cuda")
+else:
+    DEVICE = torch.device("cpu")
+
+print(f"Using device: {DEVICE}")
 
 SEAL_CLASSES = ["bird", "boar", "dog", "dragon", "hare", "horse",
                 "monkey", "ox", "ram", "rat", "snake", "tiger"]
