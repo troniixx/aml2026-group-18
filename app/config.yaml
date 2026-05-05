@@ -1,0 +1,84 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Naruto Hand Seal Detector — App Config
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Models ────────────────────────────────────────────────────────────────────
+models:
+  model_1:
+    name:                 "Advanced Model - Swin"
+    script:               "../Mert/swin_live.py"
+    weights:              "../Mert/swin_best.pth"
+    confidence_threshold: 0.3
+  model_2:
+    name:                 "Baseline - MobileNetV2"
+    script:               "../Mert/mobilenet_live.py"
+    weights:              "../Mert/mobilenetv2_best.pth"
+    confidence_threshold: 0.35
+
+active_model: "model_1"
+
+# ── MediaPipe hand landmarker ─────────────────────────────────────────────────
+mediapipe_model: "../Mert/hand_landmarker.task"
+
+# ── Assets directory ──────────────────────────────────────────────────────────
+assets_dir: "../assets"
+
+# ── UI ────────────────────────────────────────────────────────────────────────
+ui:
+  panel_width:     430
+  seal_thumb_size: 72
+  camera_index:    0
+  ghost_opacity:   0.40
+
+  primary_color:   [240, 114, 172]   # naruto pink
+  secondary_color: [240, 83,  33]    # naruto orange
+
+# ── Seal images (cheatsheet thumbnails) ───────────────────────────────────────
+# Transparent PNGs — used in the right-panel cheatsheet grid
+seal_images: &seal_images
+  rat:    "seals/transparent/rat_transparent.PNG"
+  ox:     "seals/transparent/ox_transparent.PNG"
+  tiger:  "seals/transparent/tiger_transparent.PNG"
+  hare:   "seals/transparent/hare_transparent.PNG"
+  dragon: "seals/transparent/dragon_transparent.PNG"
+  snake:  "seals/transparent/snake_transparent.PNG"
+  horse:  "seals/transparent/horse_transparent.PNG"
+  ram:    "seals/transparent/ram_transparent.PNG"
+  monkey: "seals/transparent/monkey_transparent.PNG"
+  bird:   "seals/transparent/bird_transparent.PNG"
+  dog:    "seals/transparent/dog_transparent.PNG"
+  boar:   "seals/transparent/boar_transparent.PNG"
+
+# ── Ghost overlay images (PiP square on live feed) ────────────────────────────
+# Non-transparent PNGs — used as the bottom-right PiP when a seal is clicked
+ghost_images:
+  rat:    "seals/rat.PNG"
+  ox:     "seals/ox.PNG"
+  tiger:  "seals/tiger.PNG"
+  hare:   "seals/hare.PNG"
+  dragon: "seals/dragon.PNG"
+  snake:  "seals/snake.PNG"
+  horse:  "seals/horse.PNG"
+  ram:    "seals/ram.PNG"
+  monkey: "seals/monkey.PNG"
+  bird:   "seals/bird.PNG"
+  dog:    "seals/dog.PNG"
+  boar:   "seals/boar.PNG"
+
+# ── Jutsu combos ─────────────────────────────────────────────────────────────
+jutsu_combos:
+  "Fire Style: Fireball Jutsu":       ["snake", "ram", "monkey", "boar", "horse", "tiger"]
+  "Fire Style: Dragon Flame Jutsu":   ["ox", "snake", "dog", "tiger"]
+  "Fire Style: Phoenix Flower Jutsu": ["rat", "tiger", "dog", "ox", "ram", "monkey"]
+  "Water Style: Hidden Mist Jutsu":   ["ox", "monkey", "rat", "ram", "snake", "dragon"]
+  "Water Style: Water Prison Jutsu":  ["tiger", "ox", "monkey", "hare", "ox"]
+  "Lightning Style: Chidori":         ["ox", "hare", "monkey"]
+  "Wind Style: Great Breakthrough":   ["tiger", "ox", "dog", "hare", "bird"]
+  "Earth Style: Earth Wall":          ["tiger", "hare", "boar", "dog"]
+  "Earth Style: Rock Pillar Spears":  ["tiger", "hare", "snake"]
+  "Shadow Clone Jutsu":               ["ram", "snake", "tiger"]
+  "Summoning Jutsu":                  ["boar", "dog", "bird", "monkey", "ram"]
+  "Reanimation Jutsu":                ["tiger", "snake", "dog", "dragon"]
+  "Body Flicker Jutsu":               ["ram", "horse", "snake"]
+  "Transformation Jutsu":             ["dog", "dragon", "bird"]
+  "Four Crimson Ray Formation":       ["boar", "ram", "rat", "ox", "tiger"]
