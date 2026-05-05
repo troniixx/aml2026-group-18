@@ -8,12 +8,12 @@ models:
     name:                 "Advanced Model - Swin"
     script:               "../Mert/swin_live.py"
     weights:              "../Mert/swin_best.pth"
-    confidence_threshold: 0.3
+    confidence_threshold: 0.4
   model_2:
     name:                 "Baseline - MobileNetV2"
     script:               "../Mert/mobilenet_live.py"
     weights:              "../Mert/mobilenetv2_best.pth"
-    confidence_threshold: 0.35
+    confidence_threshold: 0.4
 
 active_model: "model_1"
 
