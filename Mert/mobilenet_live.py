@@ -70,145 +70,148 @@ def build_model(num_classes):
     )
     return model
 
-model = build_model(num_classes=len(SEAL_CLASSES))
-model.load_state_dict(torch.load(CHECKPOINT, map_location=DEVICE))
-model.to(DEVICE).eval()
-print(f"Model loaded from {CHECKPOINT}")
+# Adding guard so when called it doesnt automatically run everything:
+if __name__ == "__main__":
 
-# ── mediapipe landmarker ──────────────────────────────────────────────────────
-if not Path(MODEL_PATH).exists():
-    print("Downloading hand landmarker model...")
-    urllib.request.urlretrieve(
-        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-        MODEL_PATH
+    model = build_model(num_classes=len(SEAL_CLASSES))
+    model.load_state_dict(torch.load(CHECKPOINT, map_location=DEVICE))
+    model.to(DEVICE).eval()
+    print(f"Model loaded from {CHECKPOINT}")
+
+    # ── mediapipe landmarker ──────────────────────────────────────────────────────
+    if not Path(MODEL_PATH).exists():
+        print("Downloading hand landmarker model...")
+        urllib.request.urlretrieve(
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+            MODEL_PATH
+        )
+        print("Done.")
+
+    options = vision.HandLandmarkerOptions(
+        base_options=mp_python.BaseOptions(model_asset_path=MODEL_PATH),
+        num_hands=1,
+        min_hand_detection_confidence=0.3,
+        min_hand_presence_confidence=0.3,
+        min_tracking_confidence=0.3
     )
-    print("Done.")
+    landmarker = vision.HandLandmarker.create_from_options(options)
+    print("Landmarker ready")
 
-options = vision.HandLandmarkerOptions(
-    base_options=mp_python.BaseOptions(model_asset_path=MODEL_PATH),
-    num_hands=1,
-    min_hand_detection_confidence=0.3,
-    min_hand_presence_confidence=0.3,
-    min_tracking_confidence=0.3
-)
-landmarker = vision.HandLandmarker.create_from_options(options)
-print("Landmarker ready")
+    # ── transforms ────────────────────────────────────────────────────────────────
+    infer_transforms = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406],
+                            [0.229, 0.224, 0.225]),
+    ])
 
-# ── transforms ────────────────────────────────────────────────────────────────
-infer_transforms = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225]),
-])
+    # ── live feed ─────────────────────────────────────────────────────────────────
+    frame_preds    = deque(maxlen=SMOOTHING_WINDOW)
+    seal_sequence  = []   # list of (seal_name, timestamp)
+    last_seal      = None
+    last_seal_time = 0
+    conf           = 0.0
+    smoothed_label = "..."
+    jutsu_label    = None
+    jutsu_show_until = 0  # timestamp until which to keep showing jutsu name
 
-# ── live feed ─────────────────────────────────────────────────────────────────
-frame_preds    = deque(maxlen=SMOOTHING_WINDOW)
-seal_sequence  = []   # list of (seal_name, timestamp)
-last_seal      = None
-last_seal_time = 0
-conf           = 0.0
-smoothed_label = "..."
-jutsu_label    = None
-jutsu_show_until = 0  # timestamp until which to keep showing jutsu name
+    cap = cv2.VideoCapture(CAMERA_INDEX)
 
-cap = cv2.VideoCapture(CAMERA_INDEX)
+    print("Press Q to quit")
 
-print("Press Q to quit")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        frame = cv2.flip(frame, 1)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-    
-    frame = cv2.flip(frame, 1)
+        rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_mp = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        result = landmarker.detect(img_mp)
 
-    rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    img_mp = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-    result = landmarker.detect(img_mp)
+        if result.hand_landmarks:
+            H, W  = rgb.shape[:2]
+            lm    = result.hand_landmarks[0]
+            xs    = [p.x * W for p in lm]
+            ys    = [p.y * H for p in lm]
+            pad_x = (max(xs) - min(xs)) * 0.2
+            pad_y = (max(ys) - min(ys)) * 0.2
+            x1    = max(0, int(min(xs) - pad_x))
+            y1    = max(0, int(min(ys) - pad_y))
+            x2    = min(W, int(max(xs) + pad_x))
+            y2    = min(H, int(max(ys) + pad_y))
+            crop  = rgb[y1:y2, x1:x2]
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-    if result.hand_landmarks:
-        H, W  = rgb.shape[:2]
-        lm    = result.hand_landmarks[0]
-        xs    = [p.x * W for p in lm]
-        ys    = [p.y * H for p in lm]
-        pad_x = (max(xs) - min(xs)) * 0.2
-        pad_y = (max(ys) - min(ys)) * 0.2
-        x1    = max(0, int(min(xs) - pad_x))
-        y1    = max(0, int(min(ys) - pad_y))
-        x2    = min(W, int(max(xs) + pad_x))
-        y2    = min(H, int(max(ys) + pad_y))
-        crop  = rgb[y1:y2, x1:x2]
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            tensor = infer_transforms(crop).unsqueeze(0).to(DEVICE)
+            with torch.no_grad():
+                logits         = model(tensor)
+                probs          = F.softmax(logits, dim=1)
+                conf, pred_idx = probs.max(dim=1)
+                conf           = conf.item()
+                pred_idx       = pred_idx.item()
 
-        tensor = infer_transforms(crop).unsqueeze(0).to(DEVICE)
-        with torch.no_grad():
-            logits         = model(tensor)
-            probs          = F.softmax(logits, dim=1)
-            conf, pred_idx = probs.max(dim=1)
-            conf           = conf.item()
-            pred_idx       = pred_idx.item()
-
-        if conf >= CONFIDENCE_THRESHOLD:
-            frame_preds.append(pred_idx)
-        else:
-            frame_preds.clear()
-
-        if frame_preds:
-            smoothed_idx   = Counter(frame_preds).most_common(1)[0][0]
-            smoothed_label = SEAL_CLASSES[smoothed_idx]
-
-            # Add to timed sequence if new seal and cooldown passed
-            now = time.time()
-            if smoothed_label != last_seal:
-                seal_sequence.append((smoothed_label, now))
-                last_seal      = smoothed_label
-                last_seal_time = now
-        else:
-            smoothed_label = "..."
-    else:
-        conf           = 0.0
-        smoothed_label = "..."
-        cv2.putText(frame, "No hand detected", (20, 140),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-    # Drop seals older than COMBO_WINDOW
-    now = time.time()
-    seal_sequence = [(s, t) for s, t in seal_sequence if now - t < COMBO_WINDOW]
-
-    # Check for jutsu combo
-    current_seals = tuple(s for s, t in seal_sequence)
-    for combo, name in JUTSU_COMBOS.items():
-        if len(current_seals) >= len(combo):
-            if current_seals[-len(combo):] == combo:
-                jutsu_label      = name
-                jutsu_show_until = now + 3.0  # show jutsu name for 3 seconds
-                seal_sequence    = []          # reset sequence
+            if conf >= CONFIDENCE_THRESHOLD:
+                frame_preds.append(pred_idx)
+            else:
                 frame_preds.clear()
-                break
 
-    # Clear jutsu label after display window
-    if jutsu_label and now > jutsu_show_until:
-        jutsu_label = None
+            if frame_preds:
+                smoothed_idx   = Counter(frame_preds).most_common(1)[0][0]
+                smoothed_label = SEAL_CLASSES[smoothed_idx]
 
-    # Overlay
-    display = jutsu_label if jutsu_label else smoothed_label
-    color   = (0, 255, 100) if jutsu_label else (0, 200, 255)
+                # Add to timed sequence if new seal and cooldown passed
+                now = time.time()
+                if smoothed_label != last_seal:
+                    seal_sequence.append((smoothed_label, now))
+                    last_seal      = smoothed_label
+                    last_seal_time = now
+            else:
+                smoothed_label = "..."
+        else:
+            conf           = 0.0
+            smoothed_label = "..."
+            cv2.putText(frame, "No hand detected", (20, 140),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-    cv2.putText(frame, display,             (20, 55),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.4, color, 3)
-    cv2.putText(frame, f"conf: {conf:.2f}", (20, 95),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+        # Drop seals older than COMBO_WINDOW
+        now = time.time()
+        seal_sequence = [(s, t) for s, t in seal_sequence if now - t < COMBO_WINDOW]
 
-    # Show current sequence progress at bottom
-    seq_display = " -> ".join(s for s, t in seal_sequence[-5:])
-    cv2.putText(frame, seq_display, (20, frame.shape[0] - 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        # Check for jutsu combo
+        current_seals = tuple(s for s, t in seal_sequence)
+        for combo, name in JUTSU_COMBOS.items():
+            if len(current_seals) >= len(combo):
+                if current_seals[-len(combo):] == combo:
+                    jutsu_label      = name
+                    jutsu_show_until = now + 3.0  # show jutsu name for 3 seconds
+                    seal_sequence    = []          # reset sequence
+                    frame_preds.clear()
+                    break
 
-    cv2.imshow("Naruto Handsign — MobileNetV2", frame)
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
+        # Clear jutsu label after display window
+        if jutsu_label and now > jutsu_show_until:
+            jutsu_label = None
 
-cap.release()
-cv2.destroyAllWindows()
+        # Overlay
+        display = jutsu_label if jutsu_label else smoothed_label
+        color   = (0, 255, 100) if jutsu_label else (0, 200, 255)
+
+        cv2.putText(frame, display,             (20, 55),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.4, color, 3)
+        cv2.putText(frame, f"conf: {conf:.2f}", (20, 95),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+
+        # Show current sequence progress at bottom
+        seq_display = " -> ".join(s for s, t in seal_sequence[-5:])
+        cv2.putText(frame, seq_display, (20, frame.shape[0] - 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+
+        cv2.imshow("Naruto Handsign — MobileNetV2", frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
