@@ -9,7 +9,7 @@ CAMERA_INDEX    = 0
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Dummy state — will come from your model later
-prediction      = "rat"
+prediction      = "Ishu"
 confidence      = 0.94
 jutsu_triggered = "Fire Ball Jutsu"
 seal_history    = deque(["bird", "ram", "rat", "dog", "rat"], maxlen=SEAL_HISTORY)
