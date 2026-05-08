@@ -28,6 +28,7 @@ def main() -> None:
     cfg      = load_config(args.config)
     detector = Detector(cfg)
     app      = App(cfg, detector)
+    print(cfg)
     app.run()
  
  

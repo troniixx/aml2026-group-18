@@ -20,59 +20,43 @@ import dearpygui.dearpygui as dpg
 
 from core.config import Config
 from core.detector import Detector, DetectionResult
+from core.sequencer import JutsuSequencer
+from ui.effects import apply_effect
 from ui.textures import bgr_to_dpg_flat, load_thumbnail
 
 
-# Jutsu combos (mirrors what's in the detector)
-JUTSU_COMBOS = {
-    "Fire Style: Fireball Jutsu":        ("snake", "ram", "monkey", "boar", "horse", "tiger"),
-    "Fire Style: Dragon Flame Jutsu":    ("ox", "snake", "dog", "tiger"),
-    "Fire Style: Phoenix Flower Jutsu":  ("rat", "tiger", "dog", "ox", "ram", "monkey"),
-    "Water Style: Hidden Mist Jutsu":    ("ox", "monkey", "rat", "ram", "snake", "dragon"),
-    "Water Style: Water Prison Jutsu":   ("tiger", "ox", "monkey", "hare", "ox"),
-    "Lightning Style: Chidori":          ("ox", "hare", "monkey"),
-    "Wind Style: Great Breakthrough":    ("tiger", "ox", "dog", "hare", "bird"),
-    "Earth Style: Earth Wall":           ("tiger", "hare", "boar", "dog"),
-    "Earth Style: Rock Pillar Spears":   ("tiger", "hare", "snake"),
-    "Shadow Clone Jutsu":                ("ram", "snake", "tiger"),
-    "Summoning Jutsu":                   ("boar", "dog", "bird", "monkey", "ram"),
-    "Reanimation Jutsu":                 ("tiger", "snake", "dog", "dragon"),
-    "Body Flicker Jutsu":                ("ram", "horse", "snake"),
-    "Transformation Jutsu":              ("dog", "dragon", "bird"),
-    "Four Crimson Ray Formation":        ("boar", "ram", "rat", "ox", "tiger"),
+EFFECT_COMBOS = {
+    "Fire Style: Fireball Jutsu":      ("snake", "ram", "monkey", "boar", "horse", "tiger"),
+    "Water Style: Hidden Mist Jutsu":  ("ox", "monkey", "rat", "ram", "snake", "dragon"),
+    "Lightning Style: Chidori":        ("ox", "hare", "monkey"),
+    "Wind Style: Great Breakthrough":  ("tiger", "ox", "dog", "hare", "bird"),
+    "Shadow Clone Jutsu":              ("ram", "snake", "tiger"),
+    "Body Flicker Jutsu":              ("ram", "horse", "snake"),
 }
 
-# Width of the rightmost cheatsheet panel
 CHEATSHEET_PANEL_WIDTH = 260
-INFO_PANEL_WIDTH = 220
+INFO_PANEL_WIDTH       = 220
+RECORDING_BAR_HEIGHT   = 38
 
-# Height reserved at the bottom of the camera panel for recording controls
-RECORDING_BAR_HEIGHT = 38
+SEAL_COOLDOWN_FRAMES   = 5
+VIEWPORT_HEIGHT_PAD    = 120
+PRE_EFFECT_FRAMES      = 10   # 60 = 2 s announcement before effect plays
 
-# ── Record button color — customize here ─────────────────────────────────────
-# Values are (R, G, B) in 0-255 range
-RECORD_BTN_COLOR        = (176, 48, 48)   # normal state
-RECORD_BTN_COLOR_HOVER  = (212, 47, 47)   # on hover
-RECORD_BTN_COLOR_ACTIVE = (224, 2, 2)   # on click
-# ─────────────────────────────────────────────────────────────────────────────
+RECORD_BTN_COLOR        = (30, 100, 45)
+RECORD_BTN_COLOR_HOVER  = (40, 130, 60)
+RECORD_BTN_COLOR_ACTIVE = (50, 150, 70)
 
-# How many frames between blink toggles (lower = faster blink)
-BLINK_INTERVAL = 10
+BLINK_INTERVAL = 18
+
+BORDER_PINK  = (150,  80, 200)
+BORDER_GREEN = ( 50, 200,  80)
 
 
 class App:
-    """
-    Encapsulates the entire DearPyGui application.
-
-    Usage
-    -----
-    app = App(cfg, detector)
-    app.run()
-    """
-
     def __init__(self, cfg: Config, detector: Detector) -> None:
         self.cfg      = cfg
         self.detector = detector
+        self._seal_cooldown: int = 0
 
         self.cap: cv2.VideoCapture = cv2.VideoCapture(cfg.ui.camera_index)
         ret, probe = self.cap.read()
@@ -80,27 +64,41 @@ class App:
             raise RuntimeError("Could not open camera.")
         self.frame_h, self.frame_w = probe.shape[:2]
 
-        # Ghost overlay state
         self._ghost_img:  Optional[np.ndarray] = None
         self._show_ghost: bool                  = False
 
-        # Jutsu sequence overlay state
         self._jutsu_sequence: Optional[tuple] = None
         self._jutsu_name:     Optional[str]   = None
 
-        # CV2 thumbnail cache
+        self._seq_match_idx:   int           = 0
+        self._last_seq_label:  Optional[str] = None
+
+        # Track announcement→effect transition to reset sequence highlights
+        self._was_announcing: bool = False
+
         self._seal_cv2_thumbs: dict[str, np.ndarray] = {}
 
-        # Recording state
+        self.JUTSU_COMBOS = {
+            name: tuple(seals)
+            for name, seals in cfg.jutsu_combos.items()
+        }
+
+        self.sequencer = JutsuSequencer(
+            EFFECT_COMBOS,
+            cooldown_frames=120,
+            effect_frames=90,
+            pre_effect_frames=PRE_EFFECT_FRAMES,   # 2 s announcement
+        )
+        self.effect_state: dict = {}
+
+        self._last_result: Optional[DetectionResult] = None
+
         self._recording:      bool                      = False
         self._video_writer:   Optional[cv2.VideoWriter] = None
         self._recording_path: Optional[Path]            = None
+        self._blink_frame:    int                       = 0
+        self._blink_visible:  bool                      = True
 
-        # Blinking REC indicator state
-        self._blink_frame:   int  = 0
-        self._blink_visible: bool = True
-
-        # Colours (shorthand)
         self.C_PRIMARY   = tuple(cfg.ui.primary_color)
         self.C_SECONDARY = tuple(cfg.ui.secondary_color)
         self.C_DIM       = (100, 100, 100)
@@ -109,7 +107,6 @@ class App:
         self.C_BG_MID    = ( 25,  25,  25)
         self.C_RED       = (200,  60,  60)
 
-        # Seal history
         self._seal_history: list[str] = []
         self._last_seal:    Optional[str] = None
 
@@ -129,7 +126,7 @@ class App:
         dpg.create_viewport(
             title="Naruto Hand Seal Detection",
             width=self.frame_w + INFO_PANEL_WIDTH + CHEATSHEET_PANEL_WIDTH,
-            height=self.frame_h + 30,
+            height=self.frame_h + VIEWPORT_HEIGHT_PAD,
             resizable=True,
             min_width=640,
             min_height=360,
@@ -173,24 +170,18 @@ class App:
                 dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,  8, 8)
         dpg.bind_theme(global_theme)
 
-        # Record button — color comes from the RECORD_BTN_COLOR constants above
         with dpg.theme() as self._theme_record:
             with dpg.theme_component(dpg.mvButton):
-                dpg.add_theme_color(dpg.mvThemeCol_Button,
-                                    RECORD_BTN_COLOR)
-                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,
-                                    RECORD_BTN_COLOR_HOVER)
-                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,
-                                    RECORD_BTN_COLOR_ACTIVE)
+                dpg.add_theme_color(dpg.mvThemeCol_Button,        RECORD_BTN_COLOR)
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, RECORD_BTN_COLOR_HOVER)
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,  RECORD_BTN_COLOR_ACTIVE)
 
-        # Stop button — fixed red
         with dpg.theme() as self._theme_red:
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,        (130, 30, 30))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (160, 40, 40))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,  (180, 50, 50))
 
-        # Save button — blue
         with dpg.theme() as self._theme_save:
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,        (40,  60, 100))
@@ -238,52 +229,31 @@ class App:
 
             with dpg.group(horizontal=True):
 
-                # ── PANEL 1: camera feed + recording bar ──────────────────────
                 with dpg.child_window(tag="child_left",
                                       width=fw, height=fh,
                                       no_scrollbar=True, border=False):
-
                     dpg.add_image("tex_camera",
                                   width=fw,
                                   height=fh - RECORDING_BAR_HEIGHT,
                                   tag="img_feed")
-
                     dpg.add_separator()
-
-                    # Recording controls
-                    with dpg.group(horizontal=True, tag="grp_rec_controls"):
-
-                        # ● REC — the filled circle renders reliably on all fonts
-                        dpg.add_button(
-                            label="  ● REC  ",
-                            tag="btn_record",
-                            callback=self._start_recording,
-                        )
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(label="  ● REC  ", tag="btn_record",
+                                       callback=self._start_recording)
                         dpg.bind_item_theme("btn_record", self._theme_record)
-
-                        # Stop (hidden until recording)
-                        dpg.add_button(
-                            label="  stop  ",
-                            tag="btn_stop",
-                            callback=self._stop_recording,
-                        )
+                        dpg.add_button(label="  stop  ", tag="btn_stop",
+                                       callback=self._stop_recording)
                         dpg.bind_item_theme("btn_stop", self._theme_red)
                         dpg.hide_item("btn_stop")
-
-                        # Open folder (hidden until a recording exists)
-                        dpg.add_button(
-                            label="  open recordings folder  ",
-                            tag="btn_save",
-                            callback=self._open_recordings_folder,
-                        )
+                        dpg.add_button(label="  open recordings folder  ",
+                                       tag="btn_save",
+                                       callback=self._open_recordings_folder)
                         dpg.bind_item_theme("btn_save", self._theme_save)
                         dpg.hide_item("btn_save")
 
-                # ── PANEL 2: detection info ───────────────────────────────────
                 with dpg.child_window(tag="child_right",
                                       width=pw, height=fh,
                                       no_scrollbar=False, border=False):
-
                     with dpg.group(horizontal=True):
                         dpg.add_image("tex_logo")
                     dpg.add_text("", tag="lbl_active_model", color=self.C_DIM)
@@ -294,14 +264,11 @@ class App:
                     model_names = [m.name for m in self.cfg.models.values()]
                     model_keys  = list(self.cfg.models.keys())
                     active_idx  = model_keys.index(self.cfg.active_model)
-                    dpg.add_combo(
-                        items=model_names,
-                        default_value=model_names[active_idx],
-                        width=-1,
-                        tag="combo_model",
-                        callback=self._on_model_switch,
-                        user_data=model_keys,
-                    )
+                    dpg.add_combo(items=model_names,
+                                  default_value=model_names[active_idx],
+                                  width=-1, tag="combo_model",
+                                  callback=self._on_model_switch,
+                                  user_data=model_keys)
                     dpg.add_spacer(height=2)
                     dpg.add_separator()
                     dpg.add_spacer(height=6)
@@ -321,19 +288,24 @@ class App:
 
                     dpg.add_text("SEAL HISTORY", color=self.C_PRIMARY)
                     dpg.add_spacer(height=2)
-                    SEAL_HISTORY = 5
-                    for i in range(SEAL_HISTORY):
+                    for i in range(5):
                         dpg.add_text("", tag=f"lbl_hist_{i}")
+
+                    dpg.add_spacer(height=6)
+                    dpg.add_separator()
+                    dpg.add_spacer(height=6)
+
+                    dpg.add_text("ACTIVE JUTSU", color=self.C_PRIMARY)
+                    dpg.add_spacer(height=2)
+                    dpg.add_text("—", tag="lbl_active_jutsu", color=self.C_SECONDARY)
 
                     dpg.add_spacer(height=8)
                     dpg.add_separator()
                     dpg.add_text("Press  Q  to quit", color=self.C_DIM)
 
-                # ── PANEL 3: cheatsheets ──────────────────────────────────────
                 with dpg.child_window(tag="child_cheatsheet",
                                       width=cw, height=fh,
                                       no_scrollbar=False, border=False):
-
                     dpg.add_text("CHEATSHEETS", color=self.C_PRIMARY)
                     dpg.add_separator()
                     dpg.add_spacer(height=6)
@@ -343,12 +315,10 @@ class App:
                         dpg.add_spacer(height=2)
                         dpg.add_text("Click to overlay on feed", color=self.C_DIM)
                         dpg.add_spacer(height=4)
-
                         COLS   = 2
                         size   = self.cfg.ui.seal_thumb_size
                         chunks = [self.cfg.all_seals[i:i + COLS]
                                   for i in range(0, len(self.cfg.all_seals), COLS)]
-
                         with dpg.table(header_row=False,
                                        borders_innerH=False, borders_outerH=False,
                                        borders_innerV=False, borders_outerV=False,
@@ -366,7 +336,6 @@ class App:
                                                 user_data=seal,
                                             )
                                             dpg.add_text(seal.capitalize(), color=self.C_DIM)
-
                         dpg.add_spacer(height=4)
                         dpg.add_button(label="Clear overlay", width=-1,
                                        callback=lambda: self._clear_ghost())
@@ -381,16 +350,11 @@ class App:
                         dpg.add_text("Click to show seal sequence\non camera feed",
                                      color=self.C_DIM)
                         dpg.add_spacer(height=4)
-
-                        for jutsu_name, combo in JUTSU_COMBOS.items():
-                            dpg.add_button(
-                                label=jutsu_name,
-                                width=-1,
-                                callback=self._on_jutsu_selected,
-                                user_data=(jutsu_name, combo),
-                            )
+                        for jutsu_name, combo in self.JUTSU_COMBOS.items():
+                            dpg.add_button(label=jutsu_name, width=-1,
+                                           callback=self._on_jutsu_selected,
+                                           user_data=(jutsu_name, combo))
                             dpg.add_spacer(height=2)
-
                         dpg.add_spacer(height=4)
                         dpg.add_button(label="Clear sequence", width=-1,
                                        callback=lambda: self._clear_jutsu_sequence())
@@ -402,20 +366,15 @@ class App:
     def _start_recording(self) -> None:
         recordings_dir = Path(__file__).parent.parent / "recordings"
         recordings_dir.mkdir(exist_ok=True)
-
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self._recording_path = recordings_dir / f"recording_{timestamp}.mp4"
-
         fps    = self.cap.get(cv2.CAP_PROP_FPS) or 30.0
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        self._video_writer = cv2.VideoWriter(
-            str(self._recording_path), fourcc, fps,
-            (self.frame_w, self.frame_h),
-        )
-        self._recording      = True
-        self._blink_frame    = 0
-        self._blink_visible  = True
-
+        self._video_writer   = cv2.VideoWriter(
+            str(self._recording_path), fourcc, fps, (self.frame_w, self.frame_h))
+        self._recording     = True
+        self._blink_frame   = 0
+        self._blink_visible = True
         dpg.hide_item("btn_record")
         dpg.show_item("btn_stop")
         dpg.hide_item("btn_save")
@@ -425,7 +384,6 @@ class App:
         if self._video_writer:
             self._video_writer.release()
             self._video_writer = None
-
         dpg.show_item("btn_record")
         dpg.hide_item("btn_stop")
         dpg.show_item("btn_save")
@@ -437,52 +395,28 @@ class App:
         elif recordings_dir.exists():
             os.startfile(str(recordings_dir))
 
-    # ──────────────────────────────────────────────────────────────────────────
-    #  Blinking REC indicator drawn onto the camera frame
-    # ──────────────────────────────────────────────────────────────────────────
-
     def _draw_rec_indicator(self, frame: np.ndarray) -> np.ndarray:
-        """Draw a blinking red circle + REC text in the top-left of the frame."""
         if not self._recording:
             return frame
-
-        # Advance blink counter
         self._blink_frame += 1
         if self._blink_frame >= BLINK_INTERVAL:
             self._blink_frame   = 0
             self._blink_visible = not self._blink_visible
-
         if not self._blink_visible:
             return frame
-
-        # Position and size
-        cx, cy = 22, 22      # circle centre
-        r      = 10          # radius
-        margin = 6           # gap between circle and text
-
-        # Filled red circle
-        cv2.circle(frame, (cx, cy), r, (0, 0, 220), -1)
-
-        # Thin dark border so it shows on bright backgrounds
-        cv2.circle(frame, (cx, cy), r, (0, 0, 0), 1)
-
-        # "REC" label to the right of the circle
-        cv2.putText(
-            frame, "REC",
-            (cx + r + margin, cy + 5),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 220), 2, cv2.LINE_AA,
-        )
-
+        cv2.circle(frame, (22, 22), 10, (0, 0, 220), -1)
+        cv2.circle(frame, (22, 22), 10, (0, 0, 0), 1)
+        cv2.putText(frame, "REC", (38, 27),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 220), 2, cv2.LINE_AA)
         return frame
 
     # ──────────────────────────────────────────────────────────────────────────
-    #  Ghost overlay  (activating clears jutsu sequence)
+    #  Ghost overlay
     # ──────────────────────────────────────────────────────────────────────────
 
     def _load_ghost(self, seal_name: str) -> None:
         self._jutsu_sequence = None
         self._jutsu_name     = None
-
         path = (self.cfg.ghost_images.get(seal_name)
                 or self.cfg.seal_images.get(seal_name))
         if path:
@@ -510,17 +444,14 @@ class App:
     def _apply_ghost(self, frame: np.ndarray) -> np.ndarray:
         if not self._show_ghost or self._ghost_img is None:
             return frame
-
         fh, fw   = frame.shape[:2]
         pip_size = max(80, min(200, int(min(fh, fw) * 0.30)))
         margin   = 12
-
         thumb = cv2.resize(self._ghost_img, (pip_size, pip_size))
         x1 = fw - pip_size - margin
         y1 = fh - pip_size - margin
         x2 = x1 + pip_size
         y2 = y1 + pip_size
-
         if len(thumb.shape) == 3 and thumb.shape[2] == 4:
             bgr   = thumb[:, :, :3]
             alpha = thumb[:, :, 3:4].astype(np.float32) / 255.0
@@ -528,22 +459,43 @@ class App:
             frame[y1:y2, x1:x2] = (bgr * alpha + roi * (1 - alpha)).astype(np.uint8)
         else:
             frame[y1:y2, x1:x2] = thumb
-
         border_color = (self.C_PRIMARY[2], self.C_PRIMARY[1], self.C_PRIMARY[0])
         cv2.rectangle(frame, (x1 - 2, y1 - 2), (x2 + 2, y2 + 2), border_color, 2)
         return frame
 
     # ──────────────────────────────────────────────────────────────────────────
-    #  Jutsu sequence overlay  (activating clears ghost)
+    #  Jutsu sequence preview strip
     # ──────────────────────────────────────────────────────────────────────────
 
     def _on_jutsu_selected(self, sender, app_data, user_data) -> None:
-        self._show_ghost = False
+        self._show_ghost     = False
         self._jutsu_name, self._jutsu_sequence = user_data
+        self._seq_match_idx  = 0
+        self._last_seq_label = None
 
     def _clear_jutsu_sequence(self) -> None:
-        self._jutsu_sequence = None
-        self._jutsu_name     = None
+        self._jutsu_sequence  = None
+        self._jutsu_name      = None
+        self._seq_match_idx   = 0
+        self._last_seq_label  = None
+
+    def _update_sequence_progress(self, label: Optional[str]) -> None:
+        if not self._jutsu_sequence:
+            return
+        if label == self._last_seq_label:
+            return
+        self._last_seq_label = label
+        if label is None:
+            return
+
+        if self._seq_match_idx < len(self._jutsu_sequence):
+            expected = self._jutsu_sequence[self._seq_match_idx]
+            if label == expected:
+                self._seq_match_idx += 1
+                # Do NOT reset when complete — stay at len(seq) so all borders
+                # stay green during the announcement phase
+            else:
+                self._seq_match_idx = 0
 
     def _draw_jutsu_sequence(self, frame: np.ndarray) -> np.ndarray:
         if not self._jutsu_sequence:
@@ -554,9 +506,7 @@ class App:
         thumb_size = min(64, (fw - 20) // max(n, 1))
         label_h    = 18
         bar_h      = thumb_size + label_h + 20
-        margin_x   = 10
-        margin_y   = 10
-        bar_y      = fh - bar_h - margin_y
+        bar_y      = fh - bar_h - 10
 
         overlay = frame.copy()
         cv2.rectangle(overlay, (0, bar_y - 6), (fw, fh), (10, 10, 10), -1)
@@ -564,8 +514,8 @@ class App:
 
         prim_bgr = (self.C_PRIMARY[2], self.C_PRIMARY[1], self.C_PRIMARY[0])
         cv2.putText(frame, self._jutsu_name or "",
-                    (margin_x, bar_y + 2),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, prim_bgr, 1, cv2.LINE_AA)
+                    (10, bar_y + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
+                    prim_bgr, 1, cv2.LINE_AA)
 
         total_w = n * thumb_size + (n - 1) * 6
         start_x = (fw - total_w) // 2
@@ -581,8 +531,12 @@ class App:
                 cv2.rectangle(frame, (x, y), (x + thumb_size, y + thumb_size),
                               (60, 60, 60), -1)
 
-            cv2.rectangle(frame, (x - 1, y - 1),
-                          (x + thumb_size + 1, y + thumb_size + 1), prim_bgr, 1)
+            border    = BORDER_GREEN if i < self._seq_match_idx else BORDER_PINK
+            thickness = 2            if i < self._seq_match_idx else 1
+            cv2.rectangle(frame,
+                          (x - 2, y - 2),
+                          (x + thumb_size + 2, y + thumb_size + 2),
+                          border, thickness)
 
             if i < n - 1:
                 ax = x + thumb_size + 2
@@ -590,11 +544,58 @@ class App:
                 cv2.arrowedLine(frame, (ax, ay), (ax + 4, ay),
                                 (160, 160, 160), 1, tipLength=0.5)
 
-            label = seal.capitalize()
-            (lw, _), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)
-            cv2.putText(frame, label,
+            lbl = seal.capitalize()
+            (lw, _), _ = cv2.getTextSize(lbl, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)
+            cv2.putText(frame, lbl,
                         (x + (thumb_size - lw) // 2, y + thumb_size + label_h - 4),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.35, (180, 180, 180), 1, cv2.LINE_AA)
+
+        return frame
+
+    # ──────────────────────────────────────────────────────────────────────────
+    #  Jutsu announcement overlay
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def _draw_jutsu_announcement(self, frame: np.ndarray) -> np.ndarray:
+        """
+        During the pre-effect window, draw the jutsu name centered at the top
+        of the camera feed with a fade-in, hold, fade-out envelope.
+        """
+        if not self.sequencer.is_announcing:
+            return frame
+
+        fh, fw   = frame.shape[:2]
+        progress = self.sequencer.announce_progress   # 0 → 1
+
+        # Fade in over first 20%, hold, fade out over last 20%
+        if progress < 0.20:
+            alpha = progress / 0.20
+        elif progress > 0.80:
+            alpha = (1.0 - progress) / 0.20
+        else:
+            alpha = 1.0
+        alpha = float(np.clip(alpha, 0.0, 1.0))
+
+        jutsu_text = (self.sequencer.active_jutsu or "").upper()
+        font       = cv2.FONT_HERSHEY_SIMPLEX
+        scale      = 1.1
+        thickness  = 2
+
+        (tw, th), _ = cv2.getTextSize(jutsu_text, font, scale, thickness)
+        tx = (fw - tw) // 2
+        ty = 62
+
+        # Semi-transparent dark banner
+        # banner = frame.copy()
+        # cv2.rectangle(banner, (0, 0), (fw, ty + 18), (5, 5, 5), -1)
+        # cv2.addWeighted(banner, 0.65 * alpha, frame, 1 - 0.65 * alpha, 0, frame)
+
+        # Jutsu name text blended onto frame
+        text_layer = frame.copy()
+        prim_bgr   = (self.C_PRIMARY[2], self.C_PRIMARY[1], self.C_PRIMARY[0])
+        cv2.putText(text_layer, jutsu_text, (tx, ty),
+                    font, scale, prim_bgr, thickness, cv2.LINE_AA)
+        cv2.addWeighted(text_layer, alpha, frame, 1.0 - alpha, 0, frame)
 
         return frame
 
@@ -607,21 +608,21 @@ class App:
         model_names = [m.name for m in self.cfg.models.values()]
         key = model_keys[model_names.index(app_data)]
         self.detector.switch_model(key)
+        self.sequencer.reset()
+        self.effect_state.clear()
         dpg.set_value("lbl_active_model", f"Active: {self.cfg.models[key].name}")
 
     def _update_ui(self, result: DetectionResult) -> None:
         SEAL_HISTORY = 5
-
         label_text = result.label.upper() if result.label else "—"
         conf_text  = f"  {result.confidence:.0%}" if result.label else ""
-
         dpg.set_value("lbl_seal",     label_text)
         dpg.set_value("lbl_conf_pct", conf_text)
 
         if result.label and result.label != self._last_seal:
             self._seal_history.insert(0, result.label)
             self._seal_history = self._seal_history[:SEAL_HISTORY]
-            self._last_seal = result.label
+            self._last_seal    = result.label
 
         for i in range(SEAL_HISTORY):
             if i < len(self._seal_history):
@@ -634,15 +635,15 @@ class App:
             else:
                 dpg.set_value(f"lbl_hist_{i}", "")
 
+        jutsu = self.sequencer.active_jutsu
+        dpg.set_value("lbl_active_jutsu", jutsu.upper() if jutsu else "—")
+
     def _resize_to_viewport(self) -> None:
         vp_w = dpg.get_viewport_client_width()
         vp_h = dpg.get_viewport_client_height()
-
-        left_w = max(1, vp_w - INFO_PANEL_WIDTH - CHEATSHEET_PANEL_WIDTH - 2)
-        left_h = max(1, vp_h)
-
+        left_w     = max(1, vp_w - INFO_PANEL_WIDTH - CHEATSHEET_PANEL_WIDTH - 2)
+        left_h     = max(1, vp_h)
         img_area_h = max(1, left_h - RECORDING_BAR_HEIGHT)
-
         aspect = self.frame_w / self.frame_h
         if left_w / img_area_h > aspect:
             img_h = img_area_h
@@ -650,19 +651,21 @@ class App:
         else:
             img_w = left_w
             img_h = int(img_w / aspect)
-
-        dpg.configure_item("child_left",       width=left_w,                    height=left_h)
-        dpg.configure_item("child_right",      width=INFO_PANEL_WIDTH,   height=left_h)
-        dpg.configure_item("child_cheatsheet", width=CHEATSHEET_PANEL_WIDTH,    height=left_h)
-        dpg.configure_item("img_feed",         width=img_w,                     height=img_h)
+        dpg.configure_item("child_left",       width=left_w,                 height=left_h)
+        dpg.configure_item("child_right",      width=INFO_PANEL_WIDTH,       height=left_h)
+        dpg.configure_item("child_cheatsheet", width=CHEATSHEET_PANEL_WIDTH, height=left_h)
+        dpg.configure_item("img_feed",         width=img_w,                  height=img_h)
 
     def _draw_detection(self, frame: np.ndarray, result: DetectionResult) -> np.ndarray:
+        # ── Fix 3: hide bbox while a jutsu effect is playing ─────────────────
+        if self.sequencer.active_jutsu and not self.sequencer.is_announcing:
+            return frame
+
         if result.hand_bbox is None:
             return frame
 
         x1, y1, x2, y2 = result.hand_bbox
         bgr = (self.C_PRIMARY[2], self.C_PRIMARY[1], self.C_PRIMARY[0])
-
         cv2.rectangle(frame, (x1, y1), (x2, y2), bgr, 2)
         label = f"{result.label}  {result.confidence:.0%}"
         (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
@@ -683,14 +686,75 @@ class App:
                     break
                 frame = cv2.flip(frame, 1)
 
-                result = self.detector.predict(frame)
+                # ── Model inference — always runs for live hand tracking ───────
+                live_result = self.detector.predict(frame)
 
+                if self.sequencer.active_jutsu and not self.sequencer.is_announcing:
+                    # Effect playing — freeze label, bbox stays live
+                    frozen = self._last_result or live_result
+                    result = DetectionResult(
+                        label      = frozen.label,
+                        confidence = frozen.confidence,
+                        hand_bbox  = live_result.hand_bbox,
+                        history    = frozen.history,
+                        jutsu      = frozen.jutsu,
+                    )
+                elif self._seal_cooldown > 0:
+                    # Cooldown — freeze label, bbox stays live
+                    self._seal_cooldown -= 1
+                    frozen = self._last_result or live_result
+                    result = DetectionResult(
+                        label      = frozen.label,
+                        confidence = frozen.confidence,
+                        hand_bbox  = live_result.hand_bbox,
+                        history    = frozen.history,
+                        jutsu      = frozen.jutsu,
+                    )
+                else:
+                    result            = live_result
+                    self._last_result = result
+                    if result.label is not None:
+                        self._seal_cooldown = SEAL_COOLDOWN_FRAMES
+
+                # ── Sequence progress ─────────────────────────────────────────
+                # Update during normal detection and during announcement
+                # (so the last seal lights up green before the effect starts)
+                if not (self.sequencer.active_jutsu and not self.sequencer.is_announcing):
+                    self._update_sequence_progress(result.label)
+
+                # ── Sequencer ─────────────────────────────────────────────────
+                triggered = self.sequencer.update(result.label)
+                if triggered:
+                    self.effect_state.clear()
+                    # Keep _seq_match_idx at len(sequence) — all green during
+                    # announcement. Reset happens when announcement ends (below).
+
+                # Detect announcement → effect transition and reset strip
+                currently_announcing = self.sequencer.is_announcing
+                if self._was_announcing and not currently_announcing and self.sequencer.active_jutsu:
+                    self._seq_match_idx  = 0
+                    self._last_seq_label = None
+                self._was_announcing = currently_announcing
+
+                # ── OpenCV drawing ────────────────────────────────────────────
                 frame = self._draw_detection(frame, result)
                 frame = self._apply_ghost(frame)
                 frame = self._draw_jutsu_sequence(frame)
-                frame = self._draw_rec_indicator(frame)   # ← blinking REC dot
+                frame = self._draw_jutsu_announcement(frame)   # ← name banner
 
-                # Write frame to video (after all overlays are drawn)
+                # ── Visual effect (only after announcement ends) ───────────────
+                if self.sequencer.active_jutsu and not self.sequencer.is_announcing:
+                    frame = apply_effect(
+                        frame,
+                        self.sequencer.active_jutsu,
+                        self.sequencer.effect_progress,
+                        self.sequencer.effect_frame,
+                        result.hand_bbox,
+                        self.effect_state,
+                    )
+
+                frame = self._draw_rec_indicator(frame)
+
                 if self._recording and self._video_writer is not None:
                     self._video_writer.write(frame)
 
