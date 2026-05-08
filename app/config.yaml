@@ -25,7 +25,7 @@ assets_dir: "../assets"
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 ui:
-  panel_width:     430
+  panel_width:     470
   seal_thumb_size: 72
   camera_index:    0
   ghost_opacity:   0.40
@@ -68,17 +68,8 @@ ghost_images:
 # ── Jutsu combos ─────────────────────────────────────────────────────────────
 jutsu_combos:
   "Fire Style: Fireball Jutsu":       ["snake", "ram", "monkey", "boar", "horse", "tiger"]
-  "Fire Style: Dragon Flame Jutsu":   ["ox", "snake", "dog", "tiger"]
-  "Fire Style: Phoenix Flower Jutsu": ["rat", "tiger", "dog", "ox", "ram", "monkey"]
   "Water Style: Hidden Mist Jutsu":   ["ox", "monkey", "rat", "ram", "snake", "dragon"]
-  "Water Style: Water Prison Jutsu":  ["tiger", "ox", "monkey", "hare", "ox"]
   "Lightning Style: Chidori":         ["ox", "hare", "monkey"]
   "Wind Style: Great Breakthrough":   ["tiger", "ox", "dog", "hare", "bird"]
-  "Earth Style: Earth Wall":          ["tiger", "hare", "boar", "dog"]
-  "Earth Style: Rock Pillar Spears":  ["tiger", "hare", "snake"]
   "Shadow Clone Jutsu":               ["ram", "snake", "tiger"]
-  "Summoning Jutsu":                  ["boar", "dog", "bird", "monkey", "ram"]
-  "Reanimation Jutsu":                ["tiger", "snake", "dog", "dragon"]
   "Body Flicker Jutsu":               ["ram", "horse", "snake"]
-  "Transformation Jutsu":             ["dog", "dragon", "bird"]
-  "Four Crimson Ray Formation":       ["boar", "ram", "rat", "ox", "tiger"]
