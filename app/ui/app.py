@@ -73,8 +73,11 @@ class App:
         self._seq_match_idx:   int           = 0
         self._last_seq_label:  Optional[str] = None
 
+        self._beginner_mode: bool = False
+
         # Track announcement→effect transition to reset sequence highlights
         self._was_announcing: bool = False
+
 
         self._seal_cv2_thumbs: dict[str, np.ndarray] = {}
 
@@ -187,6 +190,12 @@ class App:
                 dpg.add_theme_color(dpg.mvThemeCol_Button,        (40,  60, 100))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (55,  80, 130))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,  (70, 100, 160))
+
+        with dpg.theme() as self._theme_beginner_off:
+            with dpg.theme_component(dpg.mvButton):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,        (42,  80, 155))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (55, 100, 180))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,  (35,  65, 130))
 
     def _register_textures(self, probe: np.ndarray) -> None:
         size = self.cfg.ui.seal_thumb_size
@@ -311,7 +320,7 @@ class App:
                     dpg.add_spacer(height=6)
 
                     with dpg.collapsing_header(label="Seal Cheatsheet",
-                                               default_open=True):
+                                               default_open=False):
                         dpg.add_spacer(height=2)
                         dpg.add_text("Click to overlay on feed", color=self.C_DIM)
                         dpg.add_spacer(height=4)
@@ -340,6 +349,21 @@ class App:
                         dpg.add_button(label="Clear overlay", width=-1,
                                        callback=lambda: self._clear_ghost())
 
+                    dpg.add_spacer(height=4)
+                    dpg.add_separator()
+                    dpg.add_spacer(height=4)
+
+                    # ── Beginner mode toggle ──────────────────────────────────────────────
+                    with dpg.group(horizontal=True):
+                        dpg.add_text("Beginner Mode", color=self.C_DIM)
+                    dpg.add_button(
+                        label="OFF",
+                        tag="btn_beginner",
+                        width=-1,
+                        callback=self._toggle_beginner_mode,
+                    )
+                    dpg.bind_item_theme("btn_beginner", self._theme_beginner_off)
+                    
                     dpg.add_spacer(height=4)
                     dpg.add_separator()
                     dpg.add_spacer(height=4)
@@ -495,7 +519,22 @@ class App:
                 # Do NOT reset when complete — stay at len(seq) so all borders
                 # stay green during the announcement phase
             else:
-                self._seq_match_idx = 0
+                if not self._beginner_mode:
+                    self._seq_match_idx = 0
+
+    def _toggle_beginner_mode(self) -> None:
+        self._beginner_mode = not self._beginner_mode
+        if self._beginner_mode:
+            dpg.configure_item("btn_beginner", label="ON")
+            with dpg.theme() as t:
+                with dpg.theme_component(dpg.mvButton):
+                    dpg.add_theme_color(dpg.mvThemeCol_Button,        (30, 100, 45))
+                    dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (40, 130, 60))
+                    dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,  (50, 150, 70))
+            dpg.bind_item_theme("btn_beginner", t)
+        else:
+            dpg.configure_item("btn_beginner", label="OFF")
+            dpg.bind_item_theme("btn_beginner", self._theme_beginner_off)
 
     def _draw_jutsu_sequence(self, frame: np.ndarray) -> np.ndarray:
         # Hide the strip while a jutsu effect is playing (but keep it during announcement)
@@ -512,7 +551,7 @@ class App:
         bar_y      = fh - bar_h - 10
 
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, bar_y - 6), (fw, fh), (10, 10, 10), -1)
+        cv2.rectangle(overlay, (0, bar_y - 15), (fw, fh), (10, 10, 10), -1)
         cv2.addWeighted(overlay, 0.65, frame, 0.35, 0, frame)
 
         prim_bgr = (self.C_PRIMARY[2], self.C_PRIMARY[1], self.C_PRIMARY[0])
@@ -656,19 +695,10 @@ class App:
             img_w = left_w
             img_h = int(img_w / aspect)
 
-        # Initialise animated height to full on the first frame
-        if not self._cheatsheet_h_init:
-            self._cheatsheet_h       = float(left_h)
-            self._cheatsheet_h_target = float(left_h)
-            self._cheatsheet_h_init  = True
+        
 
-        # Target: 0 while jutsu effect is playing, full height otherwise
         jutsu_active = self.sequencer.active_jutsu and not self.sequencer.is_announcing
-        self._cheatsheet_h_target = 0.0 if jutsu_active else float(left_h)
-
-        # Lerp toward target (speed controlled by factor — 0.15 = smooth, 0.4 = snappy)
-        self._cheatsheet_h += (self._cheatsheet_h_target - self._cheatsheet_h) * 0.18
-        ch = max(0, int(self._cheatsheet_h))
+        ch = 0 if jutsu_active else left_h
 
         dpg.configure_item("child_left",       width=left_w,                 height=left_h)
         dpg.configure_item("child_right",      width=INFO_PANEL_WIDTH,       height=left_h)
@@ -736,17 +766,24 @@ class App:
                         self._seal_cooldown = SEAL_COOLDOWN_FRAMES
 
                 # ── Sequence progress ─────────────────────────────────────────
+                # Snapshot BEFORE update — used for beginner mode sequencer filter below
+                seq_match_before = self._seq_match_idx
                 # Update during normal detection and during announcement
                 # (so the last seal lights up green before the effect starts)
                 if not (self.sequencer.active_jutsu and not self.sequencer.is_announcing):
                     self._update_sequence_progress(result.label)
 
-                # ── Sequencer ─────────────────────────────────────────────────
-                triggered = self.sequencer.update(result.label)
-                if triggered:
-                    self.effect_state.clear()
-                    # Keep _seq_match_idx at len(sequence) — all green during
-                    # announcement. Reset happens when announcement ends (below).
+                # ── Sequencer ─────────────────────────────────────────────────────────────
+                # In beginner mode, don't feed wrong seals to the sequencer — only pass a
+                # label through if it's the expected next seal (or no guided sequence is active)
+                seq_label = result.label
+                if self._beginner_mode and self._jutsu_sequence and result.label is not None:
+                    expected_idx = min(seq_match_before, len(self._jutsu_sequence) - 1)  # ← use snapshot
+                    expected     = self._jutsu_sequence[expected_idx]
+                    if result.label != expected:
+                        seq_label = None
+
+                triggered = self.sequencer.update(seq_label)
 
                 # Detect announcement → effect transition and reset strip
                 currently_announcing = self.sequencer.is_announcing
@@ -755,9 +792,7 @@ class App:
                     self._last_seq_label = None
                 self._was_announcing = currently_announcing
 
-                self._cheatsheet_h:        float = 0.0   # animated height, set properly after first resize
-                self._cheatsheet_h_target: float = 0.0   # 0 = hidden, full height = visible
-                self._cheatsheet_h_init:   bool  = False  # flag to set initial height on first frame
+                
 
                 # ── OpenCV drawing ────────────────────────────────────────────
                 frame = self._draw_detection(frame, result)
