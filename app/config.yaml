@@ -34,7 +34,9 @@ ui:
   secondary_color: [240, 83,  33]    # naruto orange
 
 # ── Seal images (cheatsheet thumbnails) ───────────────────────────────────────
-# Transparent PNGs — used in the right-panel cheatsheet grid
+active_seal_images: "seal_images"   # ← switch to "seal_images_v2" to use Chenxi's
+
+# OG PNGs — used in the right-panel cheatsheet grid
 seal_images: &seal_images
   rat:    "seals/transparent/rat_transparent.PNG"
   ox:     "seals/transparent/ox_transparent.PNG"
@@ -48,6 +50,24 @@ seal_images: &seal_images
   bird:   "seals/transparent/bird_transparent.PNG"
   dog:    "seals/transparent/dog_transparent.PNG"
   boar:   "seals/transparent/boar_transparent.PNG"
+
+# from chenxi:
+seal_images_v2: &seal_images_v2
+  rat:    "new_found_pics/transprant/rat.PNG"
+  ox:     "new_found_pics/transprant/ox.PNG"
+  tiger:  "new_found_pics/transprant/tiger.PNG"
+  hare:   "new_found_pics/transprant/hare.PNG"
+  dragon: "new_found_pics/transprant/dragon.PNG"
+  snake:  "new_found_pics/transprant/snake.PNG"
+  horse:  "new_found_pics/transprant/horse.PNG"
+  ram:    "new_found_pics/transprant/ram.PNG"
+  monkey: "new_found_pics/transprant/monkey.PNG"
+  bird:   "new_found_pics/transprant/bird.PNG"
+  dog:    "new_found_pics/transprant/dog.PNG"
+  boar:   "new_found_pics/transprant/boar.PNG"
+
+
+
 
 # ── Ghost overlay images (PiP square on live feed) ────────────────────────────
 # Non-transparent PNGs — used as the bottom-right PiP when a seal is clicked

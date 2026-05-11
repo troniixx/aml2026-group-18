@@ -40,11 +40,11 @@ RECORDING_BAR_HEIGHT   = 38
 
 SEAL_COOLDOWN_FRAMES   = 5
 VIEWPORT_HEIGHT_PAD    = 120
-PRE_EFFECT_FRAMES      = 10   # 60 = 2 s announcement before effect plays
+PRE_EFFECT_FRAMES      = 7   # 60 = 2 s announcement before effect plays
 
-RECORD_BTN_COLOR        = (30, 100, 45)
-RECORD_BTN_COLOR_HOVER  = (40, 130, 60)
-RECORD_BTN_COLOR_ACTIVE = (50, 150, 70)
+RECORD_BTN_COLOR        = (120, 38, 34)
+RECORD_BTN_COLOR_HOVER  = (156 , 39, 33)
+RECORD_BTN_COLOR_ACTIVE = (175, 35, 28)
 
 BLINK_INTERVAL = 18
 
@@ -129,7 +129,7 @@ class App:
             height=self.frame_h + VIEWPORT_HEIGHT_PAD,
             resizable=True,
             min_width=640,
-            min_height=360,
+            min_height=390,
         )
         dpg.setup_dearpygui()
         dpg.show_viewport()
@@ -197,7 +197,7 @@ class App:
                 tag="tex_camera",
             )
 
-            logo_path = Path(__file__).parent.parent.parent / "assets" / "Naruto_hand_seal_detector_title.png"
+            logo_path = Path(__file__).parent.parent.parent / "assets" / "NARUTO-Seal-Detector.png"
             logo = cv2.imread(str(logo_path), cv2.IMREAD_UNCHANGED)
             if logo is None:
                 raise FileNotFoundError(f"Logo not found at: {logo_path.resolve()}")
@@ -498,6 +498,9 @@ class App:
                 self._seq_match_idx = 0
 
     def _draw_jutsu_sequence(self, frame: np.ndarray) -> np.ndarray:
+        # Hide the strip while a jutsu effect is playing (but keep it during announcement)
+        if self.sequencer.active_jutsu and not self.sequencer.is_announcing:
+            return frame
         if not self._jutsu_sequence:
             return frame
 
@@ -644,6 +647,7 @@ class App:
         left_w     = max(1, vp_w - INFO_PANEL_WIDTH - CHEATSHEET_PANEL_WIDTH - 2)
         left_h     = max(1, vp_h)
         img_area_h = max(1, left_h - RECORDING_BAR_HEIGHT)
+
         aspect = self.frame_w / self.frame_h
         if left_w / img_area_h > aspect:
             img_h = img_area_h
@@ -651,9 +655,24 @@ class App:
         else:
             img_w = left_w
             img_h = int(img_w / aspect)
+
+        # Initialise animated height to full on the first frame
+        if not self._cheatsheet_h_init:
+            self._cheatsheet_h       = float(left_h)
+            self._cheatsheet_h_target = float(left_h)
+            self._cheatsheet_h_init  = True
+
+        # Target: 0 while jutsu effect is playing, full height otherwise
+        jutsu_active = self.sequencer.active_jutsu and not self.sequencer.is_announcing
+        self._cheatsheet_h_target = 0.0 if jutsu_active else float(left_h)
+
+        # Lerp toward target (speed controlled by factor — 0.15 = smooth, 0.4 = snappy)
+        self._cheatsheet_h += (self._cheatsheet_h_target - self._cheatsheet_h) * 0.18
+        ch = max(0, int(self._cheatsheet_h))
+
         dpg.configure_item("child_left",       width=left_w,                 height=left_h)
         dpg.configure_item("child_right",      width=INFO_PANEL_WIDTH,       height=left_h)
-        dpg.configure_item("child_cheatsheet", width=CHEATSHEET_PANEL_WIDTH, height=left_h)
+        dpg.configure_item("child_cheatsheet", width=CHEATSHEET_PANEL_WIDTH, height=ch)
         dpg.configure_item("img_feed",         width=img_w,                  height=img_h)
 
     def _draw_detection(self, frame: np.ndarray, result: DetectionResult) -> np.ndarray:
@@ -735,6 +754,10 @@ class App:
                     self._seq_match_idx  = 0
                     self._last_seq_label = None
                 self._was_announcing = currently_announcing
+
+                self._cheatsheet_h:        float = 0.0   # animated height, set properly after first resize
+                self._cheatsheet_h_target: float = 0.0   # 0 = hidden, full height = visible
+                self._cheatsheet_h_init:   bool  = False  # flag to set initial height on first frame
 
                 # ── OpenCV drawing ────────────────────────────────────────────
                 frame = self._draw_detection(frame, result)

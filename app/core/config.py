@@ -136,10 +136,12 @@ def load(config_path: Path | str | None = None) -> Config:
  
     # ── Seal & ghost image paths ──────────────────────────────────────────────
     # Relative paths are resolved against assets_dir first, then APP_ROOT.
-    seal_images:  dict[str, Optional[Path]] = {
+    active_seal_key = raw.get("active_seal_images", "seal_images")
+    seal_images: dict[str, Optional[Path]] = {
         seal: _resolve(path, base=assets_dir)
-        for seal, path in raw["seal_images"].items()
+        for seal, path in raw[active_seal_key].items()
     }
+    
     ghost_images: dict[str, Optional[Path]] = {
         seal: _resolve(path, base=assets_dir)
         for seal, path in raw["ghost_images"].items()
