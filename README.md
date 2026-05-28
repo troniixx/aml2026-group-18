@@ -2,7 +2,7 @@
 Group project for the "Advanced Machine Learning (FS26)" course. 
 The system detects hand seals (jutsu) from a camera or dataset using a combination of MediaPipe hand landmarks, PyTorch image classifiers (Swin, MobileNetV2), and an optional SVM classifier for lightweight inference.
 
-**Group members:** Jennifer, Ishana Rana, Mert Erol, Chenxi, Aejong
+**Group members:** Jennifer Leleany Meyer, Ishana Rana, Mert Erol, Chenxi Jiang, Aejong Shin
 
 **Repository layout (top-level):**
 - `app/` — main application and runtime components
