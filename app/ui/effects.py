@@ -294,46 +294,78 @@ def _wind_breakthrough(frame, progress, frame_idx, hand_bbox, state):
 
 # ── 5. Shadow Clone Jutsu ─────────────────────────────────────────────────────
 
+# ── 5. Shadow Clone Jutsu ─────────────────────────────────────────────────────
+
 def _shadow_clone(frame, progress, frame_idx, hand_bbox, state):
     fh, fw = frame.shape[:2]
 
-    # Ghost alpha: flash in 0→0.2, hold 0.2→0.75, fade 0.75→1.0
+    # ── Background subtraction setup ─────────────────────────────────────────
+    # Initialise subtractor on first call and warm it up for a few frames
+    if 'subtractor' not in state:
+        state['subtractor'] = cv2.createBackgroundSubtractorMOG2(
+            history=30, varThreshold=40, detectShadows=False
+        )
+        state['warmup'] = 0
+
+    sub = state['subtractor']
+
+    # Apply to get foreground mask; warm-up frames just train the model
+    fg_mask = sub.apply(frame)
+    state['warmup'] = state['warmup'] + 1
+
+    # Clean up the mask — remove noise, fill holes
+    kernel  = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN,  kernel, iterations=1)
+    fg_mask = cv2.GaussianBlur(fg_mask, (7, 7), 0)
+
+    # If still warming up (first ~10 frames), just return frame unchanged
+    if state['warmup'] < 10:
+        return frame
+
+    # ── Extract person as BGRA with soft edges ────────────────────────────────
+    alpha        = fg_mask.astype(np.float32) / 255.0          # 0–1 per pixel
+    person_float = frame.astype(np.float32)
+
+    # ── Ghost alpha envelope ──────────────────────────────────────────────────
     if progress < 0.2:
-        ghost_alpha = _ease_in_out(progress / 0.2) * 0.58
+        ghost_alpha = _ease_in_out(progress / 0.2) * 0.70
     elif progress < 0.75:
-        ghost_alpha = 0.58
+        ghost_alpha = 0.70
     else:
-        ghost_alpha = 0.58 * (1.0 - _ease_in_out((progress - 0.75) / 0.25))
+        ghost_alpha = 0.70 * (1.0 - _ease_in_out((progress - 0.75) / 0.25))
 
-    # Clone offset: slides outward with progress, capped
-    offset = int(fw * 0.20 * min(1.0, progress * 4))
+    # ── Clone offset — slides outward as effect progresses ───────────────────
+    offset = int(fw * 0.22 * min(1.0, progress * 4))
 
-    # Desaturated dark ghost
+    # Desaturated + dark-tinted ghost version of the person
     gray     = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray_bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-    ghost    = cv2.addWeighted(frame, 0.35, gray_bgr, 0.65, 0)
-    # Blue-dark tint on ghost
-    tint     = np.full_like(ghost, (20, 15, 5))
-    cv2.addWeighted(tint, 0.2, ghost, 0.8, 0, ghost)
+    gray_bgr = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR).astype(np.float32)
+    ghost    = (person_float * 0.3 + gray_bgr * 0.7)            # desaturate
+    tint     = np.full_like(ghost, (25, 20, 10), dtype=np.float32)
+    ghost    = ghost * 0.85 + tint * 0.15                        # dark tint
 
-    result = frame.copy()
-    for sign, ox in [(-1, -offset), (1, offset)]:
+    result = frame.copy().astype(np.float32)
+
+    for ox in [-offset, offset]:
         if abs(ox) < 4:
             continue
+
+        # Shift the ghost person image
         M       = np.float32([[1, 0, ox], [0, 1, 0]])
-        shifted = cv2.warpAffine(ghost, M, (fw, fh))
+        shifted_ghost = cv2.warpAffine(ghost, M, (fw, fh))
 
-        # Mask: only paint where the shifted clone lands
-        mask = np.zeros((fh, fw), dtype=np.float32)
-        if ox > 0:
-            mask[:, ox:] = 1.0
-        else:
-            mask[:, :fw + ox] = 1.0
+        # Shift the alpha mask too so only the person region blends
+        shifted_alpha = cv2.warpAffine(alpha, M, (fw, fh))
 
-        mask_3 = np.stack([mask * ghost_alpha] * 3, axis=-1)
-        result = (shifted * mask_3 + result * (1 - mask_3)).clip(0, 255).astype(np.uint8)
+        # Combined blend weight: mask * ghost_alpha
+        weight = (shifted_alpha * ghost_alpha)[..., np.newaxis]   # (H, W, 1)
 
-    # Bright flash at the moment of appearance
+        result = shifted_ghost * weight + result * (1.0 - weight)
+
+    result = result.clip(0, 255).astype(np.uint8)
+
+    # Bright flash at the start
     if progress < 0.12:
         flash_a = (0.12 - progress) / 0.12 * 0.65
         white   = np.full_like(result, 255)

@@ -34,10 +34,11 @@ yaml.add_constructor("!path", _path_constructor, Loader=yaml.SafeLoader)
 @dataclass
 class ModelConfig:
     name:                 str
-    script_path:          Path    # {model}_live.py  — defines build_model()
-    weights_path:         Path    # {model}_best.pth — trained weights
+    model_type:           str     # e.g. pytorch, svm
+    script_path:          Path    # {model}_live.py  — defines build_model() or SVM loader
+    weights_path:         Path    # weights file, .pth or .pkl
     confidence_threshold: float   # minimum confidence to accept a prediction
- 
+
  
 @dataclass
 class UIConfig:
@@ -108,11 +109,12 @@ def load(config_path: Path | str | None = None) -> Config:
     for key, m in raw["models"].items():
         models[key] = ModelConfig(
             name=m["name"],
+            model_type=str(m.get("model_type", "pytorch")).strip().lower(),
             script_path=_resolve(m["script"]),
             weights_path=_resolve(m["weights"]),
             confidence_threshold=float(m.get("confidence_threshold", 0.5)),
         )
- 
+
     active_model = raw["active_model"]
     if active_model not in models:
         raise ValueError(

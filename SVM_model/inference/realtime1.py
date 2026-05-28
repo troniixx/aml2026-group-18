@@ -1,9 +1,16 @@
-from email.mime import text
-
 import cv2
 import joblib
-from src.features.landmarks1 import extract_landmarks
-from src.config import MODEL_PATH1
+
+SEAL_CLASSES = [
+    'bird', 'boar', 'dog', 'dragon', 'hare',
+    'horse', 'monkey', 'ox', 'ram', 'rat',
+    'snake', 'tiger', 'zero',
+]
+
+
+def load_model(weights_path):
+    return joblib.load(str(weights_path))
+
 
 def add_text(frame, text, color=(255, 255, 255), font_scale=1, thickness=2):
     h, w = frame.shape[:2]

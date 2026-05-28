@@ -82,6 +82,8 @@ class Detector:
         self.cfg         = cfg
         self._active_key = cfg.active_model
         self._model      = None
+        self._svm_module = None
+        self._model_type: str = "pytorch"
         self._conf_threshold: float = 0.5
 
         # Per-frame smoothing state
@@ -130,6 +132,12 @@ class Detector:
         print(f"[Detector] Switching: {self._active_key} → {model_key}")
         self._active_key = model_key
         self._frame_preds.clear()
+        self._seal_sequence.clear()
+        self._last_seal = None
+        self._jutsu_label = None
+        self._jutsu_until = 0.0
+        self._model = None
+        self._svm_module = None
         self._load_model(self.cfg.models[model_key])
 
     @property
@@ -170,6 +178,23 @@ class Detector:
         self._landmarker = vision.HandLandmarker.create_from_options(options)
         print("[Detector] MediaPipe hand landmarker ready.")
 
+    def _is_svm_model(self, model: object) -> bool:
+        return any(
+            hasattr(model, attr)
+            for attr in ("predict_proba", "decision_function", "predict")
+        )
+
+    def _hand_landmarks_to_features(self, hand_landmarks) -> np.ndarray:
+        coords = []
+        landmarks = (
+            hand_landmarks.landmark
+            if hasattr(hand_landmarks, "landmark")
+            else hand_landmarks
+        )
+        for lm in landmarks:
+            coords.extend([lm.x, lm.y, lm.z])
+        return np.array(coords, dtype=np.float32)
+
     # ──────────────────────────────────────────────────────────────────────────
     #  Model loading
     # ──────────────────────────────────────────────────────────────────────────
@@ -184,21 +209,19 @@ class Detector:
         defines the build_model / build_swin function.
         """
         print(f"[Detector] Loading '{model_cfg.name}' from {model_cfg.weights_path}")
+        self._model_type = str(model_cfg.model_type).strip().lower()
+        self._model = None
+        self._svm_module = None
 
-        # ── Dynamically import the build function from the live script ─────────
-        spec   = importlib.util.spec_from_file_location("_live", model_cfg.script_path)
+        # ── Dynamically import the model helper from the live script ────────────
+        module_name = f"_live_{self._active_key}_{self._model_type}"
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+        spec   = importlib.util.spec_from_file_location(module_name, model_cfg.script_path)
         module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
         spec.loader.exec_module(module)
 
-        # Support both naming conventions: build_model (mobilenet) / build_swin (swin)
-        build_fn = getattr(module, "build_model", None) or getattr(module, "build_swin", None)
-        if build_fn is None:
-            raise AttributeError(
-                f"Could not find 'build_model' or 'build_swin' in {model_cfg.script_path}. "
-                "Make sure the function is defined at module level."
-            )
-
-        # ── Pull SEAL_CLASSES from the live script (must match training order) ──
         self._seal_classes = getattr(module, "SEAL_CLASSES", None)
         if self._seal_classes is None:
             raise AttributeError(
@@ -207,12 +230,49 @@ class Detector:
             )
         print(f"[Detector] Class order: {self._seal_classes}")
 
-        # ── Build architecture & load weights ─────────────────────────────────
-        self._model = build_fn(num_classes=len(self._seal_classes))
-        self._model.load_state_dict(
-            torch.load(str(model_cfg.weights_path), map_location=self._device)
-        )
-        self._model.to(self._device).eval()
+        if self._model_type == "pytorch":
+            # Support both naming conventions: build_model (mobilenet) / build_swin (swin)
+            build_fn = getattr(module, "build_model", None) or getattr(module, "build_swin", None)
+            if build_fn is None:
+                raise AttributeError(
+                    f"Could not find 'build_model' or 'build_swin' in {model_cfg.script_path}. "
+                    "Make sure the function is defined at module level."
+                )
+            self._model = build_fn(num_classes=len(self._seal_classes))
+            self._model.load_state_dict(
+                torch.load(str(model_cfg.weights_path), map_location=self._device)
+            )
+            self._model.to(self._device).eval()
+
+        elif self._model_type in {"svm", "sklearn"}:
+            load_fn = getattr(module, "load_model", None)
+            if load_fn is None:
+                raise AttributeError(
+                    f"Could not find 'load_model' in {model_cfg.script_path}. "
+                    "Add a load_model(weights_path) helper for the SVM module."
+                )
+            self._svm_module = module
+            self._model = load_fn(model_cfg.weights_path)
+            if self._model is None:
+                raise ValueError(f"SVM loader returned None for weights: {model_cfg.weights_path}")
+
+            if not any(
+                hasattr(self._model, attr)
+                for attr in ("predict_proba", "decision_function", "predict")
+            ):
+                raise AttributeError(
+                    f"Loaded SVM model object {type(self._model).__name__} does not support "
+                    "predict_proba, decision_function, or predict."
+                )
+
+        else:
+            raise ValueError(f"Unsupported model_type: {model_cfg.model_type!r}")
+
+        if self._model is None:
+            raise RuntimeError(
+                f"Model load completed for {model_cfg.name} but returned None. "
+                f"model_type={self._model_type!r}, weights={model_cfg.weights_path}"
+            )
 
         self._conf_threshold = model_cfg.confidence_threshold
         print(f"[Detector] Ready. Confidence threshold: {self._conf_threshold}")
@@ -254,32 +314,89 @@ class Detector:
         if crop.size == 0:
             return None, 0.0, (x1, y1, x2, y2)
 
-        # ── Model inference ────────────────────────────────────────────────────
-        tensor = INFER_TRANSFORMS(crop).unsqueeze(0).to(self._device)
-        with torch.no_grad():
-            logits         = self._model(tensor)
-            probs          = F.softmax(logits, dim=1)[0]   # shape: (num_classes,)
+        if self._model is None:
+            print(f"[Detector] Model object is None during inference for {self._model_type!r}. Reloading active model.")
+            self._load_model(self.cfg.models[self._active_key])
 
-        # Sort descending to get top-2
-        top2_probs, top2_idx = probs.topk(2)
-        pred_idx = top2_idx[0].item()
+        if self._model_type == "pytorch":
+            tensor = INFER_TRANSFORMS(crop).unsqueeze(0).to(self._device)
+            with torch.no_grad():
+                logits         = self._model(tensor)
+                probs          = F.softmax(logits, dim=1)[0]   # shape: (num_classes,)
 
-        # Margin = top1 - top2: near 0 when uncertain, near 1 when clearly one seal.
-        # Much more honest than raw softmax probability.
-        conf = (top2_probs[0] - top2_probs[1]).item()
+            # Sort descending to get top-2
+            top2_probs, top2_idx = probs.topk(2)
+            pred_idx = top2_idx[0].item()
 
-        # ── Confidence threshold + smoothing ──────────────────────────────────
-        if conf >= self._conf_threshold:
-            self._frame_preds.append(pred_idx)
+            # Margin = top1 - top2: near 0 when uncertain, near 1 when clearly one seal.
+            # Much more honest than raw softmax probability.
+            conf = (top2_probs[0] - top2_probs[1]).item()
+
+            # ── Confidence threshold + smoothing ──────────────────────────────────
+            if conf >= self._conf_threshold:
+                self._frame_preds.append(pred_idx)
+            else:
+                self._frame_preds.clear()
+
+            if self._frame_preds:
+                smoothed_idx = Counter(self._frame_preds).most_common(1)[0][0]
+                label = self._seal_classes[smoothed_idx]
+            else:
+                label = None
+                conf  = 0.0
+
+        elif self._model_type in {"svm", "sklearn"}:
+            if not self._is_svm_model(self._model):
+                print(f"[Detector] Unexpected model object for SVM mode: {type(self._model).__name__}")
+                print(f"[Detector] Reloading SVM model for {self._active_key}")
+                self._load_model(self.cfg.models[self._active_key])
+
+            features = self._hand_landmarks_to_features(result.hand_landmarks[0])
+            if features is None:
+                self._frame_preds.clear()
+                return None, 0.0, (x1, y1, x2, y2)
+
+            prediction = None
+            conf = 0.0
+            try:
+                probs = self._model.predict_proba([features])[0]
+                top_idx = np.argsort(probs)[::-1]
+                top1, top2 = top_idx[0], top_idx[1]
+                prediction = self._model.classes_[top1]
+                conf = float(probs[top1] - probs[top2])
+            except AttributeError:
+                try:
+                    scores = self._model.decision_function([features])
+                    scores = np.asarray(scores).flatten()
+                    top_idx = np.argsort(scores)[::-1]
+                    top1, top2 = top_idx[0], top_idx[1]
+                    prediction = self._model.classes_[top1]
+                    conf = float(scores[top1] - scores[top2])
+                except AttributeError:
+                    try:
+                        prediction = self._model.predict([features])[0]
+                        conf = 1.0
+                    except AttributeError:
+                        raise AttributeError(
+                            f"Loaded model for model_type={self._model_type!r} does not support"
+                            " predict, predict_proba, or decision_function."
+                        )
+
+            if prediction != "zero" and conf >= self._conf_threshold:
+                self._frame_preds.append(prediction)
+            else:
+                self._frame_preds.clear()
+                label = None
+                conf = 0.0
+
+            if self._frame_preds:
+                label = Counter(self._frame_preds).most_common(1)[0][0]
+            elif label is None:
+                label = None
+                conf = 0.0
+
         else:
-            self._frame_preds.clear()
-
-        if self._frame_preds:
-            smoothed_idx = Counter(self._frame_preds).most_common(1)[0][0]
-            label = self._seal_classes[smoothed_idx]
-        else:
-            label = None
-            conf  = 0.0
+            raise ValueError(f"Unsupported model_type: {self._model_type!r}")
 
         return label, conf, (x1, y1, x2, y2)
 

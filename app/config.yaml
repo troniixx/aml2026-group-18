@@ -6,19 +6,25 @@
 models:
   model_1:
     name:                 "Advanced Model - Swin"
-    script:               "../Mert/swin_live.py"
-    weights:              "../Mert/swin_best.pth"
+    script:               "../Advanced_models/swin_live.py"
+    weights:              "../Advanced_models/swin_best.pth"
     confidence_threshold: 0.4
   model_2:
     name:                 "Baseline - MobileNetV2"
-    script:               "../Mert/mobilenet_live.py"
-    weights:              "../Mert/mobilenetv2_best.pth"
+    script:               "../Advanced_models/mobilenet_live.py"
+    weights:              "../Advanced_models/mobilenetv2_best.pth"
     confidence_threshold: 0.4
+  model_3:
+    name:                 "Baseline - SVM"
+    model_type:           "svm"
+    script:               "../SVM_model/inference/realtime1.py"
+    weights:              "../SVM_model/models/svm_model1.pkl"
+    confidence_threshold: 0.1
 
 active_model: "model_1"
 
 # ── MediaPipe hand landmarker ─────────────────────────────────────────────────
-mediapipe_model: "../Mert/hand_landmarker.task"
+mediapipe_model: "../Advanced_models/hand_landmarker.task"
 
 # ── Assets directory ──────────────────────────────────────────────────────────
 assets_dir: "../assets"

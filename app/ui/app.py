@@ -57,6 +57,7 @@ class App:
         self.cfg      = cfg
         self.detector = detector
         self._seal_cooldown: int = 0
+        self._bg_subtractor: Optional[cv2.BackgroundSubtractorMOG2] = None
 
         self.cap: cv2.VideoCapture = cv2.VideoCapture(cfg.ui.camera_index)
         ret, probe = self.cap.read()
@@ -765,6 +766,14 @@ class App:
                     if result.label is not None:
                         self._seal_cooldown = SEAL_COOLDOWN_FRAMES
 
+                # ── Pre-warm background subtractor during announcement ────────────────
+                if self.sequencer.is_announcing:
+                    if self._bg_subtractor is None:
+                        self._bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+                            history=30, varThreshold=40, detectShadows=False
+                        )
+                    self._bg_subtractor.apply(frame)   # train on clean background frames
+
                 # ── Sequence progress ─────────────────────────────────────────
                 # Snapshot BEFORE update — used for beginner mode sequencer filter below
                 seq_match_before = self._seq_match_idx
@@ -773,6 +782,7 @@ class App:
                 if not (self.sequencer.active_jutsu and not self.sequencer.is_announcing):
                     self._update_sequence_progress(result.label)
 
+                 
                 # ── Sequencer ─────────────────────────────────────────────────────────────
                 # In beginner mode, don't feed wrong seals to the sequencer — only pass a
                 # label through if it's the expected next seal (or no guided sequence is active)
@@ -784,6 +794,13 @@ class App:
                         seq_label = None
 
                 triggered = self.sequencer.update(seq_label)
+
+                if triggered:                                 
+                    self.effect_state.clear()
+                    if self._bg_subtractor is not None:
+                        self.effect_state['subtractor'] = self._bg_subtractor
+                        self.effect_state['warmup']     = 30
+                    self._bg_subtractor = None  
 
                 # Detect announcement → effect transition and reset strip
                 currently_announcing = self.sequencer.is_announcing
