@@ -161,5 +161,5 @@ if __name__ == "__main__":
     print("MODEL_PATH2 from config:", MODEL_PATH2)
     print("Resolved SVM model path 2:", SVM_MODEL_PATH2)
 
-    #evaluate_svm(SVM_MODEL_PATH1, model_name="SVM Model 1")
-    evaluate_svm(SVM_MODEL_PATH2, model_name="SVM Model 2")
+    evaluate_svm(SVM_MODEL_PATH1, model_name="SVM Model 1")
+    #evaluate_svm(SVM_MODEL_PATH2, model_name="SVM Model 2")
