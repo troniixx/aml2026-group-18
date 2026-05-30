@@ -1,9 +1,19 @@
 import os
 import numpy as np
-from src.features.landmarks1 import extract_landmarks
 import cv2
 from tqdm import tqdm
-from src.config import NEW_CLASSES, CLASSES
+from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SVM_ROOT = PROJECT_ROOT / "SVM_model"
+print("SVM_ROOT:", PROJECT_ROOT)
+
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(SVM_ROOT))
+
+from features.landmarks1 import extract_landmarks
+from config import NEW_CLASSES, CLASSES
 
 def build_dataset(data_dir):
     X, y = [], []
@@ -14,8 +24,10 @@ def build_dataset(data_dir):
     classes = CLASSES if 'zero' in os.listdir(data_dir) else CLASSES[:-1]
     classes = CLASSES[:-1]
 
+    data_dir = Path(data_dir)
+
     for label in classes:
-        class_dir = cwd + '/' + data_dir + '/' + label
+        class_dir = data_dir / label
         counter = 0
 
         for img_name in tqdm(os.listdir(class_dir), desc=f"Processing '{label}'"):
